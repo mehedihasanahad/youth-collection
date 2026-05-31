@@ -333,8 +333,21 @@
                                 @endif
                                 <div class="flex-1 min-w-0">
                                     <p class="text-xs font-medium text-gray-800 line-clamp-1">{{ $productName }}</p>
-                                    @if($item->variant && $item->variant->label)
-                                        <p class="text-[11px] text-gray-500">{{ $item->variant->label }}</p>
+                                    @if($item->variant && $item->variant->options->isNotEmpty())
+                                        <div class="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                            @foreach($item->variant->options as $opt)
+                                                @php $isColor = in_array(strtolower($opt->option_name), ['color', 'colour']); @endphp
+                                                @if($isColor)
+                                                    <span class="inline-flex items-center gap-1 text-[11px] text-gray-500">
+                                                        {{ $opt->option_name }}:
+                                                        <span class="w-3.5 h-3.5 rounded-full border border-gray-300 shrink-0"
+                                                              style="background-color: {{ $opt->option_value }};"></span>
+                                                    </span>
+                                                @else
+                                                    <span class="text-[11px] text-gray-500">{{ $opt->option_name }}: {{ $opt->option_value }}</span>
+                                                @endif
+                                            @endforeach
+                                        </div>
                                     @endif
                                     <p class="text-[11px] text-gray-400">{{ $item->quantity }} × ৳{{ number_format($unitPrice, 0) }}</p>
                                 </div>
