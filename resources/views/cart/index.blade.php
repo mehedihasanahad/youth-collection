@@ -94,14 +94,13 @@
                                                         <span class="w-4 h-4 rounded-full border border-gray-300 shrink-0"
                                                               style="background-color: {{ $opt->option_value }};"></span>
                                                     </span>
+                                                @elseif($item->custom_size && strtolower($opt->option_name) === 'size')
+                                                    <span class="text-xs text-gray-500">{{ $opt->option_name }}: {{ $item->custom_size }}</span>
                                                 @else
                                                     <span class="text-xs text-gray-500">{{ $opt->option_name }}: {{ $opt->option_value }}</span>
                                                 @endif
                                             @endforeach
                                         </div>
-                                    @endif
-                                    @if($item->custom_size)
-                                        <p class="text-xs text-primary-600 mt-0.5">Custom size: {{ $item->custom_size }}</p>
                                     @endif
                                 </div>
                             </div>

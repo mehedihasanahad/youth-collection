@@ -376,7 +376,7 @@
                                     <label class="text-xs font-semibold text-gray-600 mb-1 block">Enter your measurements</label>
                                     <input type="text"
                                            id="custom-size-input"
-                                           placeholder="e.g. Bust 38, Waist 30, Hip 40"
+                                           placeholder="e.g. Length-0,Body-0,Sleeve-0"
                                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors">
                                     <p class="text-[11px] text-gray-400 mt-1">We'll tailor this item to your measurements.</p>
                                 </div>
@@ -1183,9 +1183,11 @@ function selectVariantOption(optionName, optionValue, btn) {
         }
     }
 
-    // Show/hide custom size input box
+    // Show/hide custom size input box.
+    // Only react when the selection is within the size group — clicking colour or
+    // other options must NOT hide the box once custom size is active.
     const customBox = document.getElementById('custom-size-box');
-    if (customBox) {
+    if (customBox && optionName.toLowerCase() === 'size') {
         if (optionValue === '__custom__') {
             customBox.classList.remove('hidden');
         } else {

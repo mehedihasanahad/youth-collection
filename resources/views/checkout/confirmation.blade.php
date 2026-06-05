@@ -189,11 +189,32 @@
 <script>
 if (typeof fbq !== 'undefined') {
     fbq('track', 'Purchase', {
-        value:       {{ (float) $order->total_amount }},
-        currency:    'BDT',
-        content_ids: [{{ $order->items->pluck('product_id')->filter()->implode(',') }}],
-        content_type:'product',
-        num_items:   {{ $order->items->sum('quantity') }}
+        value:        {{ (float) $order->total_amount }},
+        currency:     'BDT',
+        content_ids:  [{{ $order->items->pluck('product_id')->filter()->implode(',') }}],
+        content_type: 'product',
+        num_items:    {{ $order->items->sum('quantity') }},
+        order_id:     '{{ $order->order_number }}',
+        @if($order->ship_name)
+        fn:           '{{ hash("sha256", strtolower(explode(" ", trim($order->ship_name), 2)[0])) }}',
+        ln:           '{{ hash("sha256", strtolower(explode(" ", trim($order->ship_name), 2)[1] ?? "")) }}',
+        @endif
+        @if($order->ship_phone)
+        ph:           '{{ hash("sha256", preg_replace("/\D/", "", $order->ship_phone)) }}',
+        @endif
+        @if($order->ship_city)
+        ct:           '{{ hash("sha256", strtolower(trim($order->ship_city))) }}',
+        @endif
+        @if($order->ship_district)
+        st:           '{{ hash("sha256", strtolower(trim($order->ship_district))) }}',
+        @endif
+        @if($order->ship_zip)
+        zp:           '{{ hash("sha256", trim($order->ship_zip)) }}',
+        @endif
+        @auth
+        em:           '{{ hash("sha256", strtolower(trim(auth()->user()->email))) }}',
+        external_id:  '{{ hash("sha256", (string) auth()->id()) }}',
+        @endauth
     });
 }
 </script>

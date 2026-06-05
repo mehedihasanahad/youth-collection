@@ -343,6 +343,8 @@
                                                         <span class="w-3.5 h-3.5 rounded-full border border-gray-300 shrink-0"
                                                               style="background-color: {{ $opt->option_value }};"></span>
                                                     </span>
+                                                @elseif($item->custom_size && strtolower($opt->option_name) === 'size')
+                                                    <span class="text-[11px] text-gray-500">{{ $opt->option_name }}: {{ $item->custom_size }}</span>
                                                 @else
                                                     <span class="text-[11px] text-gray-500">{{ $opt->option_name }}: {{ $opt->option_value }}</span>
                                                 @endif
@@ -457,9 +459,18 @@
 <script>
 if (typeof fbq !== 'undefined') {
     fbq('track', 'InitiateCheckout', {
-        value:    {{ (float) ($subtotal - ($couponSession['discount'] ?? 0)) }},
-        currency: 'BDT',
-        num_items: {{ $cartItems->sum('quantity') }}
+        value:        {{ (float) ($subtotal - ($couponSession['discount'] ?? 0)) }},
+        currency:     'BDT',
+        num_items:    {{ $cartItems->sum('quantity') }},
+        content_ids:  [{{ $cartItems->pluck('product_id')->filter()->implode(',') }}],
+        content_type: 'product',
+        @auth
+        em:           '{{ hash("sha256", strtolower(trim(auth()->user()->email))) }}',
+        @if(auth()->user()->phone)
+        ph:           '{{ hash("sha256", preg_replace("/\D/", "", auth()->user()->phone)) }}',
+        @endif
+        external_id:  '{{ hash("sha256", (string) auth()->id()) }}',
+        @endauth
     });
 }
 </script>

@@ -266,7 +266,18 @@ class CheckoutController extends Controller
             foreach ($cartItems as $item) {
                 $unitPrice    = $item->variant ? $item->variant->effective_price : $item->product->current_price;
                 $productName  = $item->product->getTranslation('en')?->name ?? $item->product->sku;
-                $variantLabel = $item->variant?->label;
+                // Build variant label, substituting the size value with the custom measurement when applicable
+                $variantLabel = null;
+                if ($item->variant) {
+                    $variantLabel = $item->variant->options
+                        ->map(function ($opt) use ($item) {
+                            if ($item->custom_size && strtolower($opt->option_name) === 'size') {
+                                return "{$opt->option_name}: {$item->custom_size}";
+                            }
+                            return "{$opt->option_name}: {$opt->option_value}";
+                        })
+                        ->implode(' / ');
+                }
 
                 OrderItem::create([
                     'order_id'      => $order->id,
