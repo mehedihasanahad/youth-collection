@@ -109,6 +109,69 @@ class OrderResource extends Resource
                 Infolists\Components\TextEntry::make('ship_city'),
                 Infolists\Components\TextEntry::make('ship_district'),
             ])->columns(3),
+
+            Infolists\Components\Section::make('Order Items')->schema([
+                Infolists\Components\RepeatableEntry::make('items')
+                    ->label('')
+                    ->schema([
+                        Infolists\Components\ImageEntry::make('product.primaryImage.path')
+                            ->label('')
+                            ->disk('public')
+                            ->height(56)
+                            ->width(56)
+                            ->extraImgAttributes(['style' => 'border-radius:8px; object-fit:cover;']),
+
+                        Infolists\Components\TextEntry::make('product_name')
+                            ->label('Product')
+                            ->weight('semibold')
+                            ->columnSpan(2),
+
+                        Infolists\Components\TextEntry::make('variant_label')
+                            ->label('Variant')
+                            ->html()
+                            ->placeholder('—')
+                            ->formatStateUsing(function (?string $state): string {
+                                if (! $state) {
+                                    return '';
+                                }
+                                $parts = array_map('trim', explode('/', $state));
+                                $html  = [];
+                                foreach ($parts as $part) {
+                                    $sep = strpos($part, ': ');
+                                    if ($sep !== false) {
+                                        $key = substr($part, 0, $sep);
+                                        $val = substr($part, $sep + 2);
+                                        if (in_array(strtolower(trim($key)), ['color', 'colour'])) {
+                                            $html[] = e($key) . ': <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' . e(trim($val)) . ';border:1px solid #d1d5db;vertical-align:middle;margin-left:2px;"></span>';
+                                        } else {
+                                            $html[] = e($key) . ': ' . e($val);
+                                        }
+                                    } else {
+                                        $html[] = e($part);
+                                    }
+                                }
+                                return implode('<span style="color:#d1d5db"> / </span>', $html);
+                            })
+                            ->columnSpan(2),
+
+                        Infolists\Components\TextEntry::make('quantity')
+                            ->label('Qty')
+                            ->badge()
+                            ->color('info'),
+
+                        Infolists\Components\TextEntry::make('unit_price')
+                            ->label('Unit Price')
+                            ->money('BDT'),
+
+                        Infolists\Components\TextEntry::make('subtotal')
+                            ->label('Subtotal')
+                            ->money('BDT')
+                            ->weight('bold')
+                            ->color('primary'),
+                    ])
+                    ->columns(8)
+                    ->contained(false),
+            ]),
         ]);
     }
 

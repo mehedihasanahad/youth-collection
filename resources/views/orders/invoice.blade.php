@@ -99,6 +99,15 @@
         .items-table tbody td { padding: 10px 12px; font-size: 11px; vertical-align: middle; }
         .product-name { font-weight: 600; color: #111827; }
         .variant-label { font-size: 10px; color: #9ca3af; margin-top: 2px; }
+        .color-swatch {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 1px solid #d1d5db;
+            vertical-align: -6px;
+            margin-left: 2px;
+        }
 
         /* ── Totals ── */
         .totals-wrap { width: 100%; margin-bottom: 28px; }
@@ -235,7 +244,26 @@
                     <td>
                         <div class="product-name">{{ $item->product_name }}</div>
                         @if($item->variant_label)
-                            <div class="variant-label">{{ $item->variant_label }}</div>
+                            @php
+                                $vlParts = array_map('trim', explode('/', $item->variant_label));
+                            @endphp
+                            <div class="variant-label">
+                                @foreach($vlParts as $vlIdx => $vlPart)
+                                    @if($vlIdx > 0)<span style="color:#d1d5db;"> / </span>@endif
+                                    @php
+                                        $vlSep = strpos($vlPart, ': ');
+                                        $vlKey = $vlSep !== false ? substr($vlPart, 0, $vlSep) : null;
+                                        $vlVal = $vlSep !== false ? substr($vlPart, $vlSep + 2) : $vlPart;
+                                        $vlIsColor = $vlKey && in_array(strtolower(trim($vlKey)), ['color', 'colour']);
+                                    @endphp
+                                    @if($vlKey){{ trim($vlKey) }}: @endif
+                                    @if($vlIsColor)
+                                        <span class="color-swatch" style="background-color: {{ trim($vlVal) }};"></span>
+                                    @else
+                                        {{ $vlVal }}
+                                    @endif
+                                @endforeach
+                            </div>
                         @endif
                     </td>
                     <td style="text-align:center;">{{ $item->quantity }}</td>

@@ -12,6 +12,17 @@ class ViewOrder extends ViewRecord
 {
     protected static string $resource = OrderResource::class;
 
+    protected function resolveRecord(int | string $key): Order
+    {
+        return Order::with([
+            'items.product.primaryImage',
+            'user',
+            'coupon',
+            'manualPayment',
+            'shippingRate',
+        ])->findOrFail($key);
+    }
+
     protected function getHeaderActions(): array
     {
         return [
