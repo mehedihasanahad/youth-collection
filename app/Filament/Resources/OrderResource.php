@@ -108,6 +108,12 @@ class OrderResource extends Resource
                 Infolists\Components\TextEntry::make('ship_address'),
                 Infolists\Components\TextEntry::make('ship_city'),
                 Infolists\Components\TextEntry::make('ship_district'),
+                Infolists\Components\TextEntry::make('shippingRate.method_name')
+                    ->label('Shipping Method')
+                    ->placeholder('—'),
+                Infolists\Components\TextEntry::make('shipping_amount')
+                    ->label('Shipping Charge')
+                    ->formatStateUsing(fn ($state) => (float) $state === 0.0 ? 'Free' : '৳' . number_format((float) $state, 0)),
             ])->columns(3),
 
             Infolists\Components\Section::make('Order Items')->schema([
@@ -172,6 +178,28 @@ class OrderResource extends Resource
                     ->columns(8)
                     ->contained(false),
             ]),
+
+            Infolists\Components\Section::make('Order Summary')->schema([
+                Infolists\Components\TextEntry::make('subtotal')
+                    ->label('Subtotal')
+                    ->formatStateUsing(fn ($state) => '৳' . number_format((float) $state, 0)),
+
+                Infolists\Components\TextEntry::make('discount_amount')
+                    ->label('Discount')
+                    ->formatStateUsing(fn ($state) => (float) $state > 0 ? '−৳' . number_format((float) $state, 0) : '—')
+                    ->color(fn ($state) => (float) $state > 0 ? 'success' : 'gray'),
+
+                Infolists\Components\TextEntry::make('shipping_amount')
+                    ->label('Shipping')
+                    ->formatStateUsing(fn ($state) => (float) $state === 0.0 ? 'Free' : '৳' . number_format((float) $state, 0)),
+
+                Infolists\Components\TextEntry::make('total_amount')
+                    ->label('Grand Total')
+                    ->formatStateUsing(fn ($state) => '৳' . number_format((float) $state, 0))
+                    ->weight('bold')
+                    ->size(\Filament\Infolists\Components\TextEntry\TextEntrySize::Large)
+                    ->color('primary'),
+            ])->columns(4),
         ]);
     }
 
