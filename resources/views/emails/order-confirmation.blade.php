@@ -51,7 +51,22 @@
             <td>
                 {{ $item->product_name }}
                 @if($item->variant_label)
-                    <br><span style="font-size:12px;color:#9ca3af;">{{ $item->variant_label }}</span>
+                    @php
+                        $vlParts = array_map('trim', explode('/', $item->variant_label));
+                        $vlHtml  = [];
+                        foreach ($vlParts as $vlPart) {
+                            $vlSep     = strpos($vlPart, ': ');
+                            $vlKey     = $vlSep !== false ? substr($vlPart, 0, $vlSep) : null;
+                            $vlVal     = $vlSep !== false ? substr($vlPart, $vlSep + 2) : $vlPart;
+                            $vlIsColor = $vlKey && in_array(strtolower(trim($vlKey)), ['color', 'colour']);
+                            if ($vlIsColor) {
+                                $vlHtml[] = e(trim($vlKey)) . ': <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' . e(trim($vlVal)) . ';border:1px solid #d1d5db;vertical-align:middle;margin-left:2px;"></span>';
+                            } else {
+                                $vlHtml[] = e($vlKey ? trim($vlKey) . ': ' . $vlVal : $vlPart);
+                            }
+                        }
+                    @endphp
+                    <br><span style="font-size:12px;color:#9ca3af;">{!! implode('<span style="color:#d1d5db"> / </span>', $vlHtml) !!}</span>
                 @endif
             </td>
             <td style="text-align:right">{{ $item->quantity }}</td>

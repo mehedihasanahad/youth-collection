@@ -48,6 +48,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
     @include('partials.facebook-pixel')
+    @include('partials.google-analytics')
 </head>
 <body class="bg-white text-gray-900 antialiased">
 

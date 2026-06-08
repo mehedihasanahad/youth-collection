@@ -353,64 +353,6 @@
     font-weight: 900;
 }
 
-/* Category Swiper */
-.category-swiper {
-    padding-bottom: 8px !important;
-}
-
-.category-swiper .category-scroll-card {
-    width: 100%;
-}
-
-.category-swiper-prev,
-.category-swiper-next {
-    color: #ffffff;
-    background: #CB7888;
-    width: 36px;
-    height: 36px;
-    border-radius: 3px;
-    border: none;
-    box-shadow: 0 4px 18px rgba(203,120,136,0.45), 0 1px 4px rgba(0,0,0,0.10);
-    top: 50%;
-    margin-top: 0;
-    transform: translateY(-50%);
-}
-
-.category-swiper-prev:hover,
-.category-swiper-next:hover {
-    background: #bb4e64;
-}
-
-.category-swiper-prev::after,
-.category-swiper-next::after {
-    font-weight: 900;
-}
-
-/* Category scroll strip */
-.category-scroll-track {
-    display: flex;
-    gap: 1rem;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 4px;
-}
-.category-scroll-track::-webkit-scrollbar { display: none; }
-.category-scroll-track { scrollbar-width: none; -ms-overflow-style: none; }
-
-.category-scroll-card {
-    flex-shrink: 0;
-    width: 185px;
-    aspect-ratio: 1 / 1;
-    scroll-snap-align: start;
-    position: relative;
-    overflow: hidden;
-    border-radius: 0.5rem;
-    display: block;
-}
-
-@media (min-width: 640px) { .category-scroll-card { width: 200px; } }
-@media (min-width: 1024px) { .category-scroll-card { width: 220px; } }
 
 /* Home page product card (New Arrivals) */
 .new-arrivals-grid {

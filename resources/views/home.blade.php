@@ -84,9 +84,11 @@
     </div>
 </section>
 
+
 {{-- ============================================================
-    3. SHOP BY CATEGORY
+    3. SHOP BY CATEGORY — grid
 ============================================================ --}}
+@if($categories->isNotEmpty())
 <section id="categories" class="py-10">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
@@ -95,42 +97,33 @@
             <div class="hidden lg:block w-10 h-0.5 bg-primary-600 mt-3 lg:mx-auto"></div>
         </div>
 
-        @if($categories->isNotEmpty())
-            <div class="swiper category-swiper">
-                <div class="swiper-wrapper">
-                    @foreach($categories->take(10) as $category)
-                        @php
-                            $t = $category->getTranslation(app()->getLocale()) ?? $category->getTranslation('en');
-                            $catSlug = $t?->slug;
-                        @endphp
-                        <div class="swiper-slide">
-                            <a href="{{ !empty($catSlug) ? route('shop.category', ['category' => $catSlug]) : '#' }}"
-                               class="category-scroll-card group">
-                                @if($category->image)
-                                    <img src="{{ asset('storage/' . $category->image) }}"
-                                         alt="{{ $t?->name ?? 'Category' }}"
-                                         class="absolute inset-0 w-full h-full object-cover">
-                                @else
-                                    <div class="absolute inset-0 bg-gray-200"></div>
-                                @endif
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent group-hover:from-primary-900/80 transition-colors duration-300"></div>
-                                <div class="absolute bottom-0 left-0 right-0 p-4 text-center">
-                                    <p class="font-bold text-white text-xs uppercase tracking-widest leading-tight">{{ $t?->name ?? 'Category' }}</p>
-                                    <p class="text-primary-200 text-[11px] mt-1.5 italic font-light">Explore Now</p>
-                                </div>
-                            </a>
-                        </div>
-                    @endforeach
-                </div>
-                <div class="swiper-button-prev category-swiper-prev"></div>
-                <div class="swiper-button-next category-swiper-next"></div>
-            </div>
-        @else
-            <p class="text-center text-gray-400 py-12">No categories available.</p>
-        @endif
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            @foreach($categories as $category)
+                @php
+                    $t = $category->getTranslation(app()->getLocale()) ?? $category->getTranslation('en');
+                    $catSlug = $t?->slug;
+                @endphp
+                <a href="{{ !empty($catSlug) ? route('shop.category', ['category' => $catSlug]) : '#' }}"
+                   class="group relative overflow-hidden rounded-xl aspect-square block">
+                    @if($category->image)
+                        <img src="{{ asset('storage/' . $category->image) }}"
+                             alt="{{ $t?->name ?? 'Category' }}"
+                             class="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+                    @else
+                        <div class="absolute inset-0 bg-gray-200"></div>
+                    @endif
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent group-hover:from-primary-900/80 transition-colors duration-300"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-3 text-center">
+                        <p class="font-bold text-white text-xs uppercase tracking-widest leading-tight">{{ $t?->name ?? 'Category' }}</p>
+                        <p class="text-primary-200 text-[11px] mt-1 italic font-light">Explore Now</p>
+                    </div>
+                </a>
+            @endforeach
+        </div>
 
     </div>
 </section>
+@endif
 
 {{-- ============================================================
     4. NEW ARRIVALS — 2-column layout

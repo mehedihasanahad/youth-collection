@@ -18,20 +18,6 @@ new Swiper('.best-deals-swiper', {
     },
 });
 
-new Swiper('.category-swiper', {
-    slidesPerView: 1.6,
-    spaceBetween: 14,
-    navigation: {
-        nextEl: '.category-swiper-next',
-        prevEl: '.category-swiper-prev',
-    },
-    breakpoints: {
-        480:  { slidesPerView: 2.3, spaceBetween: 14 },
-        640:  { slidesPerView: 3,   spaceBetween: 16 },
-        1024: { slidesPerView: 4.5, spaceBetween: 16 },
-        1280: { slidesPerView: 5,   spaceBetween: 18 },
-    },
-});
 
 new Swiper('.reviews-swiper', {
     slidesPerView: 1.2,
