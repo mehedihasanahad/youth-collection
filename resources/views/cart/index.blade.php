@@ -60,11 +60,12 @@
                     @endphp
 
                     <div class="bg-white border border-gray-100 rounded-2xl p-4">
-                        {{-- Mobile: stacked, Desktop: grid --}}
-                        <div class="flex gap-4 md:grid md:grid-cols-12 md:items-center">
+
+                        {{-- Desktop: 12-col grid | Mobile: just the product info row --}}
+                        <div class="flex flex-col gap-0 md:grid md:grid-cols-12 md:items-center md:gap-4">
 
                             {{-- Product info --}}
-                            <div class="flex items-center gap-4 md:col-span-5 min-w-0">
+                            <div class="flex items-start gap-3 md:col-span-5 min-w-0">
                                 {{-- Image --}}
                                 <a href="{{ route('product.show', $productSlug) }}" class="shrink-0">
                                     @if($item->product->primaryImage)
@@ -72,14 +73,14 @@
                                              alt="{{ $productName }}"
                                              class="w-16 h-16 object-cover rounded-xl border border-gray-100">
                                     @else
-                                        <div class="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center">
+                                        <div class="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center shrink-0">
                                             <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                             </svg>
                                         </div>
                                     @endif
                                 </a>
-                                <div class="min-w-0">
+                                <div class="min-w-0 flex-1">
                                     <a href="{{ route('product.show', $productSlug) }}"
                                        class="text-sm font-semibold text-gray-900 hover:text-primary-600 transition-colors line-clamp-2">
                                         {{ $productName }}
@@ -102,16 +103,18 @@
                                             @endforeach
                                         </div>
                                     @endif
+                                    {{-- Mobile: unit price shown under variant info --}}
+                                    <p class="md:hidden text-xs text-gray-400 mt-1">৳{{ number_format($unitPrice, 0) }} each</p>
                                 </div>
                             </div>
 
-                            {{-- Unit price (desktop) --}}
+                            {{-- Unit price (desktop only) --}}
                             <div class="hidden md:block md:col-span-2 text-center text-sm font-medium text-gray-700">
                                 ৳{{ number_format($unitPrice, 0) }}
                             </div>
 
-                            {{-- Quantity + remove --}}
-                            <div class="md:col-span-3 flex items-center justify-center gap-2">
+                            {{-- Quantity + remove (desktop only) --}}
+                            <div class="hidden md:flex md:col-span-3 items-center justify-center gap-2">
                                 <form method="POST" action="{{ route('cart.update', $item) }}" class="flex items-center border border-gray-200 rounded-xl overflow-hidden">
                                     @csrf
                                     @method('PATCH')
@@ -129,7 +132,6 @@
                                     </button>
                                 </form>
 
-                                {{-- Remove --}}
                                 <form method="POST" action="{{ route('cart.destroy', $item) }}">
                                     @csrf
                                     @method('DELETE')
@@ -144,15 +146,48 @@
                                 </form>
                             </div>
 
-                            {{-- Line total --}}
-                            <div class="md:col-span-2 text-right">
-                                <span class="text-sm font-bold text-gray-900">
-                                    ৳{{ number_format($item->line_total, 0) }}
-                                </span>
-                                {{-- Mobile: show unit price --}}
-                                <p class="text-xs text-gray-400 md:hidden">৳{{ number_format($unitPrice, 0) }} each</p>
+                            {{-- Line total (desktop only) --}}
+                            <div class="hidden md:block md:col-span-2 text-right">
+                                <span class="text-sm font-bold text-gray-900">৳{{ number_format($item->line_total, 0) }}</span>
                             </div>
                         </div>
+
+                        {{-- Mobile: Qty + Total + Remove (second row, below product info) --}}
+                        <div class="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-gray-100 md:hidden">
+                            <form method="POST" action="{{ route('cart.update', $item) }}" class="flex items-center border border-gray-200 rounded-xl overflow-hidden">
+                                @csrf
+                                @method('PATCH')
+                                <button type="button"
+                                        onclick="const i=this.nextElementSibling;const v=Math.max(1,parseInt(i.value)-1);i.value=v;this.closest('form').submit()"
+                                        class="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors font-bold text-base">
+                                    −
+                                </button>
+                                <input type="number" name="quantity" value="{{ $item->quantity }}" min="1" max="{{ $maxStock }}"
+                                       class="w-12 h-9 text-center text-sm font-semibold text-gray-900 border-x border-gray-200 focus:outline-none bg-white">
+                                <button type="button"
+                                        onclick="const i=this.previousElementSibling;const v=Math.min({{ $maxStock }},parseInt(i.value)+1);i.value=v;this.closest('form').submit()"
+                                        class="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors font-bold text-base">
+                                    +
+                                </button>
+                            </form>
+
+                            <div class="flex items-center gap-3 ml-auto">
+                                <span class="text-sm font-bold text-gray-900">৳{{ number_format($item->line_total, 0) }}</span>
+                                <form method="POST" action="{{ route('cart.destroy', $item) }}">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit"
+                                            title="{{ __('front.remove') }}"
+                                            onclick="return confirm('Remove this item?')"
+                                            class="w-9 h-9 flex items-center justify-center text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                        </svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
                     </div>
                 @endforeach
 

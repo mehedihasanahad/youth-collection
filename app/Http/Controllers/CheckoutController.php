@@ -285,6 +285,7 @@ class CheckoutController extends Controller
                     'variant_id'    => $item->variant_id,
                     'product_name'  => $productName,
                     'variant_label' => $variantLabel,
+                    'custom_size'   => $item->custom_size ?: null,
                     'unit_price'    => $unitPrice,
                     'quantity'      => $item->quantity,
                     'subtotal'      => $unitPrice * $item->quantity,

@@ -161,134 +161,140 @@ class ProductResource extends Resource
                     Forms\Components\Repeater::make('variants')
                         ->relationship('variants')
                         ->schema([
-                            Forms\Components\TextInput::make('sku')
-                                ->label('Variant SKU')
-                                ->nullable()
-                                ->maxLength(100)
-                                ->unique('product_variants', 'sku', ignoreRecord: true),
-
-                            Forms\Components\TextInput::make('price_modifier')
-                                ->label('Price Modifier (৳)')
-                                ->numeric()
-                                ->default(0)
-                                ->prefix('৳')
-                                ->helperText('Added to base price. Use negative for a discount.'),
-
-                            Forms\Components\TextInput::make('stock')
-                                ->label('Stock')
-                                ->numeric()
-                                ->integer()
-                                ->required()
-                                ->default(0)
-                                ->minValue(0),
-
-                            Forms\Components\TextInput::make('sort_order')
-                                ->label('Order')
-                                ->numeric()
-                                ->integer()
-                                ->default(0),
-
-                            Forms\Components\Toggle::make('is_active')
-                                ->label('Active')
-                                ->default(true)
-                                ->inline(false),
-
-                            Forms\Components\Repeater::make('options')
-                                ->relationship('options')
-                                ->label('Options (e.g. Size: M, Colour: Red)')
+                            Forms\Components\Section::make()
+                                ->extraAttributes(['style' => 'border-left: 4px solid #cb7888; background-color: #fdf4f6; border-radius: 0 8px 8px 0;'])
                                 ->schema([
-                                    Forms\Components\TextInput::make('option_name')
-                                        ->label('Name')
-                                        ->placeholder('Size')
-                                        ->required()
-                                        ->maxLength(50)
-                                        ->live(onBlur: true),
-
-                                    Forms\Components\ColorPicker::make('option_color_picker')
-                                        ->label('Color')
-                                        ->required(fn (Get $get): bool => \in_array(
-                                            strtolower((string) ($get('option_name') ?? '')),
-                                            ['color', 'colour'],
-                                        ))
-                                        ->visible(fn (Get $get): bool => \in_array(
-                                            strtolower((string) ($get('option_name') ?? '')),
-                                            ['color', 'colour'],
-                                        ))
-                                        ->dehydrated(false)
-                                        ->live()
-                                        ->afterStateUpdated(fn (?string $state, Set $set) => $set('option_value', $state ?? ''))
-                                        ->afterStateHydrated(fn ($state, Get $get, Set $set) => $set('option_color_picker', $get('option_value'))),
-
-                                    Forms\Components\TextInput::make('option_value')
-                                        ->label('Value')
-                                        ->placeholder('M')
-                                        ->required()
+                                    Forms\Components\TextInput::make('sku')
+                                        ->label('Variant SKU')
+                                        ->nullable()
                                         ->maxLength(100)
-                                        ->hiddenLabel(fn (Get $get): bool =>
-                                            \in_array(strtolower((string) ($get('option_name') ?? '')), ['color', 'colour'])
-                                        )
-                                        ->extraAttributes(fn (Get $get): array =>
-                                            \in_array(strtolower((string) ($get('option_name') ?? '')), ['color', 'colour'])
-                                                ? ['style' => 'display:none']
-                                                : []
-                                        )
-                                        ->extraInputAttributes(fn (Get $get): array =>
-                                            \in_array(strtolower((string) ($get('option_name') ?? '')), ['color', 'colour'])
-                                                ? ['type' => 'hidden']
-                                                : []
-                                        ),
+                                        ->unique('product_variants', 'sku', ignoreRecord: true),
 
-                                    Forms\Components\Textarea::make('size_note')
-                                        ->label('Exact Size Details')
-                                        ->placeholder('e.g. Chest: 38–40 in, Length: 28 in')
-                                        ->helperText('Shown to customers when they select this size on the product page.')
-                                        ->rows(2)
-                                        ->maxLength(500)
-                                        ->nullable()
-                                        ->columnSpanFull()
-                                        ->visible(fn (Get $get): bool => strtolower((string) ($get('option_name') ?? '')) === 'size'),
-                                ])
-                                ->columns(2)
-                                ->addActionLabel('Add Option')
-                                ->defaultItems(1)
-                                ->minItems(1)
-                                ->columnSpanFull(),
+                                    Forms\Components\TextInput::make('price_modifier')
+                                        ->label('Price Modifier (৳)')
+                                        ->numeric()
+                                        ->default(0)
+                                        ->prefix('৳')
+                                        ->helperText('Added to base price. Use negative for a discount.'),
 
-                            Forms\Components\Repeater::make('images')
-                                ->relationship('images')
-                                ->label('Variant Images')
-                                ->schema([
-                                    Forms\Components\FileUpload::make('path')
-                                        ->label('Image')
-                                        ->image()
-                                        ->directory('products')
-                                        ->imageEditor()
-                                        ->imagePreviewHeight('100')
-                                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
-                                        ->maxSize(2048)
-                                        ->required(),
-
-                                    Forms\Components\TextInput::make('alt_text')
-                                        ->label('Alt Text')
-                                        ->maxLength(191)
-                                        ->nullable()
-                                        ->placeholder('Describe the image'),
+                                    Forms\Components\TextInput::make('stock')
+                                        ->label('Stock')
+                                        ->numeric()
+                                        ->integer()
+                                        ->required()
+                                        ->default(0)
+                                        ->minValue(0),
 
                                     Forms\Components\TextInput::make('sort_order')
                                         ->label('Order')
-                                        ->numeric()->integer()->default(0)->minValue(0),
+                                        ->numeric()
+                                        ->integer()
+                                        ->default(0),
+
+                                    Forms\Components\Toggle::make('is_active')
+                                        ->label('Active')
+                                        ->default(true)
+                                        ->inline(false),
+
+                                    Forms\Components\Repeater::make('options')
+                                        ->relationship('options')
+                                        ->label('Options (e.g. Size: M, Colour: Red)')
+                                        ->schema([
+                                            Forms\Components\TextInput::make('option_name')
+                                                ->label('Name')
+                                                ->placeholder('Size')
+                                                ->required()
+                                                ->maxLength(50)
+                                                ->live(onBlur: true),
+
+                                            Forms\Components\ColorPicker::make('option_color_picker')
+                                                ->label('Color')
+                                                ->required(fn (Get $get): bool => \in_array(
+                                                    strtolower((string) ($get('option_name') ?? '')),
+                                                    ['color', 'colour'],
+                                                ))
+                                                ->visible(fn (Get $get): bool => \in_array(
+                                                    strtolower((string) ($get('option_name') ?? '')),
+                                                    ['color', 'colour'],
+                                                ))
+                                                ->dehydrated(false)
+                                                ->live()
+                                                ->afterStateUpdated(fn (?string $state, Set $set) => $set('option_value', $state ?? ''))
+                                                ->afterStateHydrated(fn ($state, Get $get, Set $set) => $set('option_color_picker', $get('option_value'))),
+
+                                            Forms\Components\TextInput::make('option_value')
+                                                ->label('Value')
+                                                ->placeholder('M')
+                                                ->required()
+                                                ->maxLength(100)
+                                                ->hiddenLabel(fn (Get $get): bool =>
+                                                    \in_array(strtolower((string) ($get('option_name') ?? '')), ['color', 'colour'])
+                                                )
+                                                ->extraAttributes(fn (Get $get): array =>
+                                                    \in_array(strtolower((string) ($get('option_name') ?? '')), ['color', 'colour'])
+                                                        ? ['style' => 'display:none']
+                                                        : []
+                                                )
+                                                ->extraInputAttributes(fn (Get $get): array =>
+                                                    \in_array(strtolower((string) ($get('option_name') ?? '')), ['color', 'colour'])
+                                                        ? ['type' => 'hidden']
+                                                        : []
+                                                ),
+
+                                            Forms\Components\Textarea::make('size_note')
+                                                ->label('Exact Size Details')
+                                                ->placeholder('e.g. Chest: 38–40 in, Length: 28 in')
+                                                ->helperText('Shown to customers when they select this size on the product page.')
+                                                ->rows(2)
+                                                ->maxLength(500)
+                                                ->nullable()
+                                                ->columnSpanFull()
+                                                ->visible(fn (Get $get): bool => strtolower((string) ($get('option_name') ?? '')) === 'size'),
+                                        ])
+                                        ->columns(2)
+                                        ->addActionLabel('Add Option')
+                                        ->defaultItems(1)
+                                        ->minItems(1)
+                                        ->columnSpanFull(),
+
+                                    Forms\Components\Repeater::make('images')
+                                        ->relationship('images')
+                                        ->label('Variant Images')
+                                        ->schema([
+                                            Forms\Components\FileUpload::make('path')
+                                                ->label('Image')
+                                                ->image()
+                                                ->directory('products')
+                                                ->imageEditor()
+                                                ->imagePreviewHeight('100')
+                                                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                                                ->maxSize(2048)
+                                                ->required(),
+
+                                            Forms\Components\TextInput::make('alt_text')
+                                                ->label('Alt Text')
+                                                ->maxLength(191)
+                                                ->nullable()
+                                                ->placeholder('Describe the image'),
+
+                                            Forms\Components\TextInput::make('sort_order')
+                                                ->label('Order')
+                                                ->numeric()->integer()->default(0)->minValue(0),
+                                        ])
+                                        ->columns(3)
+                                        ->addActionLabel('Add Variant Image')
+                                        ->collapsible()
+                                        ->defaultItems(0)
+                                        ->columnSpanFull()
+                                        ->mutateRelationshipDataBeforeCreateUsing(function (array $data, $record): array {
+                                            $data['product_id'] = $record->product_id;
+                                            return $data;
+                                        }),
                                 ])
-                                ->columns(3)
-                                ->addActionLabel('Add Variant Image')
-                                ->collapsible()
-                                ->defaultItems(0)
-                                ->columnSpanFull()
-                                ->mutateRelationshipDataBeforeCreateUsing(function (array $data, $record): array {
-                                    $data['product_id'] = $record->product_id;
-                                    return $data;
-                                }),
+                                ->columns(5)
+                                ->columnSpanFull(),
                         ])
-                        ->columns(5)
+                        ->columns(1)
                         ->addActionLabel('Add Variant')
                         ->reorderable('sort_order')
                         ->collapsible()

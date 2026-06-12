@@ -114,6 +114,11 @@ class RoleResource extends Resource
             ->defaultSort('name');
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()->where('name', '!=', 'super_admin');
+    }
+
     public static function getPages(): array
     {
         return [

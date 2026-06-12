@@ -31,12 +31,22 @@ class EditOrder extends EditRecord
 
     protected function afterSave(): void
     {
-        $order     = $this->record->fresh();
+        $order     = $this->record->fresh(['items']);
         $oldStatus = $this->statusBeforeSave;
         $newStatus = $order->status;
 
+        // Recalculate each item's subtotal then rebuild order totals
+        $subtotal = 0;
+        foreach ($order->items as $item) {
+            $itemSubtotal = round((float) $item->unit_price * (int) $item->quantity, 2);
+            $item->updateQuietly(['subtotal' => $itemSubtotal]);
+            $subtotal += $itemSubtotal;
+        }
+
+        $total = max(0, $subtotal - (float) $order->discount_amount + (float) $order->shipping_amount + (float) $order->tax_amount);
+        $order->updateQuietly(['subtotal' => $subtotal, 'total_amount' => $total]);
+
         if ($oldStatus !== $newStatus) {
-            // Log status history
             OrderStatusHistory::create([
                 'order_id'   => $order->id,
                 'status'     => $newStatus,
@@ -45,7 +55,6 @@ class EditOrder extends EditRecord
                 'created_at' => now(),
             ]);
 
-            // Fire email on shipped / delivered
             try {
                 $order->load(['items', 'user']);
                 if ($newStatus === 'shipped') {

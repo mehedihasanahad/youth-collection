@@ -7,6 +7,12 @@ use App\Filament\Resources\OrderResource\Pages;
 use App\Jobs\DispatchCourierOrderJob;
 use App\Models\Order;
 use App\Models\PathaoDistrictMapping;
+use App\Models\Product;
+use App\Models\ShippingZoneDistrict;
+use App\Models\ProductVariant;
+use App\Models\ProductVariantOption;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
 use App\Services\CourierManager;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Forms;
@@ -68,6 +74,167 @@ class OrderResource extends Resource
 
                 Forms\Components\TextInput::make('tracking_number')->maxLength(100)->nullable(),
             ])->columns(3),
+
+            Forms\Components\Section::make('Order Items')
+                ->description('Update variant, quantity or custom measurements for each item.')
+                ->schema([
+                    Forms\Components\Repeater::make('items')
+                        ->relationship('items')
+                        ->addable(false)
+                        ->deletable(false)
+                        ->reorderable(false)
+                        ->schema([
+                            Forms\Components\Hidden::make('product_id'),
+
+                            Forms\Components\TextInput::make('product_name')
+                                ->label('Product')
+                                ->disabled()
+                                ->columnSpan(2),
+
+                            Forms\Components\Hidden::make('variant_id'),
+
+                            Forms\Components\Select::make('v_opt_0')
+                                ->label(fn (Get $get) => static::variantOptGroupName((int) $get('product_id'), 0) ?? 'Option 1')
+                                ->options(fn (Get $get) => static::variantOptGroupValues((int) $get('product_id'), 0))
+                                ->visible(fn (Get $get) => static::variantOptGroupName((int) $get('product_id'), 0) !== null)
+                                ->afterStateHydrated(function (Forms\Components\Select $component, Get $get): void {
+                                    $variantId = $get('variant_id');
+                                    if (! $variantId) { return; }
+                                    $opt = ProductVariant::with('options')->find($variantId)?->options->values()->get(0);
+                                    if ($opt) { $component->state($opt->option_value); }
+                                })
+                                ->live()
+                                ->afterStateUpdated(fn (Set $set, Get $get) => static::resolveVariantFromOpts($set, $get))
+                                ->native(false)
+                                ->allowHtml(true)
+                                ->dehydrated(false)
+                                ->nullable()
+                                ->placeholder('—'),
+
+                            Forms\Components\Select::make('v_opt_1')
+                                ->label(fn (Get $get) => static::variantOptGroupName((int) $get('product_id'), 1) ?? 'Option 2')
+                                ->options(fn (Get $get) => static::variantOptGroupValues((int) $get('product_id'), 1))
+                                ->visible(fn (Get $get) => static::variantOptGroupName((int) $get('product_id'), 1) !== null)
+                                ->afterStateHydrated(function (Forms\Components\Select $component, Get $get): void {
+                                    $variantId = $get('variant_id');
+                                    if (! $variantId) { return; }
+                                    $opt = ProductVariant::with('options')->find($variantId)?->options->values()->get(1);
+                                    if ($opt) { $component->state($opt->option_value); }
+                                })
+                                ->live()
+                                ->afterStateUpdated(fn (Set $set, Get $get) => static::resolveVariantFromOpts($set, $get))
+                                ->native(false)
+                                ->allowHtml(true)
+                                ->dehydrated(false)
+                                ->nullable()
+                                ->placeholder('—'),
+
+                            Forms\Components\Select::make('v_opt_2')
+                                ->label(fn (Get $get) => static::variantOptGroupName((int) $get('product_id'), 2) ?? 'Option 3')
+                                ->options(fn (Get $get) => static::variantOptGroupValues((int) $get('product_id'), 2))
+                                ->visible(fn (Get $get) => static::variantOptGroupName((int) $get('product_id'), 2) !== null)
+                                ->afterStateHydrated(function (Forms\Components\Select $component, Get $get): void {
+                                    $variantId = $get('variant_id');
+                                    if (! $variantId) { return; }
+                                    $opt = ProductVariant::with('options')->find($variantId)?->options->values()->get(2);
+                                    if ($opt) { $component->state($opt->option_value); }
+                                })
+                                ->live()
+                                ->afterStateUpdated(fn (Set $set, Get $get) => static::resolveVariantFromOpts($set, $get))
+                                ->native(false)
+                                ->allowHtml(true)
+                                ->dehydrated(false)
+                                ->nullable()
+                                ->placeholder('—'),
+
+                            Forms\Components\TextInput::make('quantity')
+                                ->label('Qty')
+                                ->numeric()
+                                ->integer()
+                                ->minValue(1)
+                                ->required(),
+
+                            Forms\Components\TextInput::make('unit_price')
+                                ->label('Unit Price (৳)')
+                                ->numeric()
+                                ->minValue(0)
+                                ->prefix('৳')
+                                ->required(),
+
+                            Forms\Components\Toggle::make('has_custom_size')
+                                ->label('Custom Size')
+                                ->visible(fn (Get $get) => static::productHasCustomSize((int) $get('product_id')))
+                                ->afterStateHydrated(function (Forms\Components\Toggle $component, Get $get): void {
+                                    $component->state(filled($get('custom_size')));
+                                })
+                                ->live()
+                                ->dehydrated(false)
+                                ->afterStateUpdated(function (bool $state, Set $set): void {
+                                    if (! $state) {
+                                        $set('custom_size', null);
+                                    }
+                                }),
+
+                            Forms\Components\TextInput::make('custom_size')
+                                ->label('Custom Measurements')
+                                ->placeholder('e.g. Chest: 40, Waist: 32')
+                                ->nullable()
+                                ->visible(fn (Get $get) => static::productHasCustomSize((int) $get('product_id')) && (bool) $get('has_custom_size'))
+                                ->dehydratedWhenHidden(true)
+                                ->columnSpan(3),
+
+                            Forms\Components\Hidden::make('variant_label'),
+                        ])
+                        ->columns(4)
+                        ->columnSpanFull(),
+                ]),
+
+            Forms\Components\Section::make('Shipping Address')
+                ->schema([
+                    Forms\Components\TextInput::make('ship_name')
+                        ->label('Recipient Name')
+                        ->required()
+                        ->maxLength(191),
+
+                    Forms\Components\TextInput::make('ship_phone')
+                        ->label('Phone')
+                        ->required()
+                        ->maxLength(20),
+
+                    Forms\Components\TextInput::make('ship_address')
+                        ->label('Address')
+                        ->required()
+                        ->maxLength(500)
+                        ->columnSpanFull(),
+
+                    Forms\Components\TextInput::make('ship_city')
+                        ->label('City')
+                        ->required()
+                        ->maxLength(100),
+
+                    Forms\Components\Select::make('ship_district')
+                        ->label('District')
+                        ->required()
+                        ->options(
+                            ShippingZoneDistrict::orderBy('district_name')
+                                ->pluck('district_name', 'district_name')
+                                ->unique()
+                                ->toArray()
+                        )
+                        ->searchable()
+                        ->native(false),
+
+                    Forms\Components\TextInput::make('ship_zip')
+                        ->label('ZIP Code')
+                        ->nullable()
+                        ->maxLength(10),
+
+                    Forms\Components\Textarea::make('notes')
+                        ->label('Order Notes')
+                        ->nullable()
+                        ->rows(2)
+                        ->columnSpanFull(),
+                ])->columns(3),
         ]);
     }
 
@@ -367,5 +534,108 @@ class OrderResource extends Resource
             'view'   => Pages\ViewOrder::route('/{record}'),
             'edit'   => Pages\EditOrder::route('/{record}/edit'),
         ];
+    }
+
+    public static function productHasCustomSize(int $productId): bool
+    {
+        if (! $productId) {
+            return false;
+        }
+
+        if (! Product::where('id', $productId)->value('custom_size_enabled')) {
+            return false;
+        }
+
+        $variant = ProductVariant::where('product_id', $productId)->with('options')->first();
+
+        return (bool) $variant?->options
+            ->pluck('option_name')
+            ->map(fn (string $n) => strtolower($n))
+            ->contains('size');
+    }
+
+    public static function variantOptGroupName(int $productId, int $index): ?string
+    {
+        if (! $productId) {
+            return null;
+        }
+
+        $variant = ProductVariant::where('product_id', $productId)->with('options')->first();
+
+        return $variant?->options->pluck('option_name')->values()->get($index);
+    }
+
+    public static function variantOptGroupValues(int $productId, int $index): array
+    {
+        if (! $productId) {
+            return [];
+        }
+
+        $optionName = static::variantOptGroupName($productId, $index);
+
+        if (! $optionName) {
+            return [];
+        }
+
+        $values = ProductVariantOption::whereHas(
+            'variant',
+            fn ($q) => $q->where('product_id', $productId)
+        )
+            ->where('option_name', $optionName)
+            ->distinct()
+            ->orderBy('option_value')
+            ->pluck('option_value')
+            ->toArray();
+
+        if (in_array(strtolower($optionName), ['color', 'colour'], true)) {
+            return array_combine($values, array_map(function (string $v): string {
+                $esc = htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
+                return '<span style="display:inline-flex;align-items:center;gap:6px;">'
+                    . '<span style="display:inline-block;width:14px;height:14px;border-radius:50%;'
+                    . 'background:' . $esc . ';border:1px solid #d1d5db;flex-shrink:0;"></span>'
+                    . $esc
+                    . '</span>';
+            }, $values));
+        }
+
+        return array_combine($values, $values);
+    }
+
+    public static function resolveVariantFromOpts(Set $set, Get $get): void
+    {
+        $productId = (int) $get('product_id');
+
+        if (! $productId) {
+            return;
+        }
+
+        $selections = array_values(array_filter(
+            [$get('v_opt_0'), $get('v_opt_1'), $get('v_opt_2')],
+            fn ($v) => $v !== null && $v !== ''
+        ));
+
+        if (empty($selections)) {
+            return;
+        }
+
+        $variants = ProductVariant::where('product_id', $productId)->with('options')->get();
+
+        foreach ($variants as $variant) {
+            $optValues = $variant->options->pluck('option_value')->values()->toArray();
+
+            if (count($optValues) !== count($selections)) {
+                continue;
+            }
+
+            if (array_values($selections) === array_values($optValues)) {
+                $set('variant_id', $variant->id);
+                $set('unit_price', $variant->effective_price);
+                $set('variant_label', $variant->options
+                    ->map(fn ($o) => "{$o->option_name}: {$o->option_value}")
+                    ->implode(' / '));
+
+                return;
+            }
+        }
     }
 }
