@@ -367,6 +367,15 @@ class OrderResource extends Resource
                     ->size(\Filament\Infolists\Components\TextEntry\TextEntrySize::Large)
                     ->color('primary'),
             ])->columns(4),
+
+            Infolists\Components\Section::make('Order Notes')
+                ->schema([
+                    Infolists\Components\TextEntry::make('notes')
+                        ->label('')
+                        ->placeholder('No notes provided.')
+                        ->columnSpanFull(),
+                ])
+                ->hidden(fn ($record) => empty($record->notes)),
         ]);
     }
 
