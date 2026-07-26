@@ -32,5 +32,18 @@ fbq('track', 'PageView');
 </script>
 <noscript><img height="1" width="1" style="display:none"
     src="https://www.facebook.com/tr?id={{ $pixelId }}&ev=PageView&noscript=1"/></noscript>
+@php $atcEvent = session('_pixel_atc'); @endphp
+@if($atcEvent)
+<script>
+fbq('track', 'AddToCart', {!! json_encode([
+    'content_ids'  => [$atcEvent['content_id']],
+    'content_name' => $atcEvent['content_name'],
+    'content_type' => 'product',
+    'value'        => $atcEvent['value'],
+    'currency'     => 'BDT',
+    'num_items'    => $atcEvent['quantity'],
+]) !!});
+</script>
+@endif
 @stack('pixel-events')
 @endif

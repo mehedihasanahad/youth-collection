@@ -89,6 +89,18 @@ class CartController extends Controller
             CartItem::create($data);
         }
 
+        // Flash pixel AddToCart data for the next page load
+        $pixelProduct = $product ?? Product::find($request->product_id);
+        if ($pixelProduct) {
+            $pixelPrice = ($variantId && isset($variant)) ? $variant->effective_price : ($pixelProduct->current_price ?? 0);
+            session()->flash('_pixel_atc', [
+                'content_id'   => (string) $request->product_id,
+                'content_name' => $pixelProduct->name,
+                'value'        => (float) $pixelPrice,
+                'quantity'     => $qty,
+            ]);
+        }
+
         if ($request->boolean('buy_now')) {
             return redirect()->route('checkout.index');
         }
