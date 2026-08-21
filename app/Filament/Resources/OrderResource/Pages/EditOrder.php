@@ -31,7 +31,7 @@ class EditOrder extends EditRecord
 
     protected function afterSave(): void
     {
-        $order     = $this->record->fresh(['items']);
+        $order = $this->record->fresh(['items']);
         $oldStatus = $this->statusBeforeSave;
         $newStatus = $order->status;
 
@@ -48,21 +48,24 @@ class EditOrder extends EditRecord
 
         if ($oldStatus !== $newStatus) {
             OrderStatusHistory::create([
-                'order_id'   => $order->id,
-                'status'     => $newStatus,
-                'notes'      => 'Status updated by admin.',
+                'order_id' => $order->id,
+                'status' => $newStatus,
+                'notes' => 'Status updated by admin.',
                 'changed_by' => auth()->id(),
                 'created_at' => now(),
             ]);
 
             try {
                 $order->load(['items', 'user']);
-                if ($newStatus === 'shipped') {
-                    Mail::to($order->user->email)->queue(new OrderShipped($order));
-                } elseif ($newStatus === 'delivered') {
-                    Mail::to($order->user->email)->queue(new OrderDelivered($order));
-                } elseif ($newStatus === 'cancelled') {
-                    Mail::to($order->user->email)->queue(new OrderCancelled($order));
+                // Email is optional for customers who signed up with a phone only.
+                if ($order->user?->hasEmail()) {
+                    if ($newStatus === 'shipped') {
+                        Mail::to($order->user->email)->queue(new OrderShipped($order));
+                    } elseif ($newStatus === 'delivered') {
+                        Mail::to($order->user->email)->queue(new OrderDelivered($order));
+                    } elseif ($newStatus === 'cancelled') {
+                        Mail::to($order->user->email)->queue(new OrderCancelled($order));
+                    }
                 }
             } catch (\Throwable) {
                 // Non-fatal

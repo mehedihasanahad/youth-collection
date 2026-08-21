@@ -50,13 +50,13 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 @foreach($addresses as $addr)
                                     <button type="button"
-                                            onclick="fillAddress({{ json_encode(['name'=>$addr->recipient_name,'phone'=>$addr->phone,'address'=>$addr->address_line,'city'=>$addr->city,'district'=>$addr->district,'zip'=>$addr->zip_code]) }})"
+                                            onclick="fillAddress({{ json_encode(['name'=>$addr->recipient_name,'phone'=>$addr->phone,'address'=>$addr->address_line,'district'=>$addr->district]) }})"
                                             class="text-left border-2 border-gray-200 hover:border-primary-400 rounded-xl p-3 transition-all text-sm">
                                         @if($addr->label)
                                             <span class="text-xs font-semibold text-primary-600 uppercase">{{ $addr->label }}</span><br>
                                         @endif
                                         <span class="font-medium text-gray-800">{{ $addr->recipient_name }}</span><br>
-                                        <span class="text-gray-500 text-xs">{{ $addr->address_line }}, {{ $addr->city }}, {{ $addr->district }}</span>
+                                        <span class="text-gray-500 text-xs">{{ $addr->address_line }}@if($addr->city), {{ $addr->city }}@endif, {{ $addr->district }}</span>
                                     </button>
                                 @endforeach
                             </div>
@@ -68,15 +68,17 @@
                     {{-- Address form fields --}}
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-                        {{-- Email — guests only --}}
+                        {{-- Email — guests only, optional --}}
                         @guest
                         <div class="sm:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('front.email') }} <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                {{ __('front.email') }} <span class="text-gray-400 font-normal">({{ __('front.optional') }})</span>
+                            </label>
                             <input type="email" name="email" value="{{ old('email') }}"
                                    placeholder="your@email.com"
                                    class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 @error('email') border-red-400 @enderror">
                             @error('email')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                            <p class="text-xs text-gray-400 mt-1">We'll create or sign in to your account automatically.</p>
+                            <p class="text-xs text-gray-400 mt-1">{{ __('front.checkout_email_hint') }}</p>
                         </div>
                         @endguest
 
@@ -93,6 +95,9 @@
                                    placeholder="017xxxxxxxx"
                                    class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 @error('ship_phone') border-red-400 @enderror">
                             @error('ship_phone')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                            @guest
+                            <p class="text-xs text-gray-400 mt-1">{{ __('front.checkout_phone_hint') }}</p>
+                            @endguest
                         </div>
 
                         <div class="sm:col-span-2">
@@ -103,14 +108,7 @@
                             @error('ship_address')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                         </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('front.ship_city') }} <span class="text-red-500">*</span></label>
-                            <input type="text" name="ship_city" value="{{ old('ship_city') }}" id="field-ship_city"
-                                   class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 @error('ship_city') border-red-400 @enderror">
-                            @error('ship_city')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                        </div>
-
-                        <div>
+                        <div class="sm:col-span-2">
                             <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('front.ship_district') }} <span class="text-red-500">*</span></label>
                             <select name="ship_district" id="district-select"
                                     class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 @error('ship_district') border-red-400 @enderror">
@@ -122,12 +120,6 @@
                                 @endforeach
                             </select>
                             @error('ship_district')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('front.ship_zip') }}</label>
-                            <input type="text" name="ship_zip" value="{{ old('ship_zip') }}" id="field-ship_zip"
-                                   class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400">
                         </div>
 
                         <div class="sm:col-span-2">
@@ -465,7 +457,9 @@ if (typeof fbq !== 'undefined') {
         content_ids:  [{{ $cartItems->pluck('product_id')->filter()->implode(',') }}],
         content_type: 'product',
         @auth
+        @if(auth()->user()->email)
         em:           '{{ hash("sha256", strtolower(trim(auth()->user()->email))) }}',
+        @endif
         @if(auth()->user()->phone)
         ph:           '{{ hash("sha256", preg_replace("/\D/", "", auth()->user()->phone)) }}',
         @endif
@@ -486,8 +480,6 @@ function fillAddress(data) {
     document.getElementById('field-ship_name').value    = data.name    || '';
     document.getElementById('field-ship_phone').value   = data.phone   || '';
     document.getElementById('field-ship_address').value = data.address || '';
-    document.getElementById('field-ship_city').value    = data.city    || '';
-    document.getElementById('field-ship_zip').value     = data.zip     || '';
 
     const districtSelect = document.getElementById('district-select');
     for (let i = 0; i < districtSelect.options.length; i++) {

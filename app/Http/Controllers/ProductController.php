@@ -4,11 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\ProductTranslation;
+use App\Services\ProductChatService;
 use Illuminate\View\View;
 
 class ProductController extends Controller
 {
-    public function show(string $slug): View
+    public function show(string $slug, ProductChatService $chat): View
     {
         $locale = app()->getLocale();
 
@@ -43,9 +44,9 @@ class ProductController extends Controller
             ->latest()
             ->get();
 
-        $reviews     = $allApprovedReviews->take(10);
+        $reviews = $allApprovedReviews->take(10);
         $reviewCount = $allApprovedReviews->count();
-        $avgRating   = $reviewCount > 0 ? round($allApprovedReviews->avg('rating'), 1) : 0;
+        $avgRating = $reviewCount > 0 ? round($allApprovedReviews->avg('rating'), 1) : 0;
 
         $ratingCounts = array_fill_keys([1, 2, 3, 4, 5], 0);
         foreach ($allApprovedReviews as $r) {
@@ -63,6 +64,8 @@ class ProductController extends Controller
             ->get();
 
         $currentTranslation = $product->getTranslation($locale);
+
+        $chatLinks = $chat->linksFor($product, $locale);
 
         $isWishlisted = auth()->check()
             && auth()->user()->wishlist()->where('product_id', $product->id)->exists();
@@ -86,6 +89,7 @@ class ProductController extends Controller
             'avgRating',
             'ratingCounts',
             'relatedProducts',
+            'chatLinks',
             'isWishlisted',
             'hasReviewed',
             'userVotedReviewIds',

@@ -403,7 +403,7 @@ return [
     'confirm_password'   => 'Confirm Password',
     'remember_me'        => 'Remember me',
     'forgot_password'       => 'Forgot password?',
-    'forgot_password_hint'  => 'Enter your email and we\'ll send you a password reset link.',
+    'forgot_password_hint'  => 'Enter your phone number and we\'ll send a password reset link to the email on your account.',
     'send_reset_link'       => 'Send Reset Link',
     'back_to_login'         => 'Back to login',
     'reset_password'        => 'Reset Password',
@@ -412,4 +412,34 @@ return [
     'no_account'         => "Don't have an account?",
     'have_account'       => 'Already have an account?',
     'full_name'          => 'Full Name',
+
+    // Phone login
+    'phone_number'              => 'Phone Number',
+    'optional'                  => 'optional',
+    'phone_taken'               => 'This phone number is already registered. Try signing in instead.',
+    'phone_login_hint'          => 'You will use this number to sign in.',
+    'email_optional_hint'       => 'Optional — add it to receive order emails and to reset your password.',
+    'password_reset_no_account' => 'We could not find an account with this phone number.',
+    'password_reset_no_email'   => 'There is no email address on this account, so we cannot send a reset link. Please contact us for help.',
+    'password_reset_sent'       => 'We have sent a password reset link to :email.',
+
+    // Checkout
+    'checkout_phone_hint'       => 'We\'ll use this number to create your account and to contact you about the order.',
+    'checkout_email_hint'       => 'Optional — add it if you would like order updates by email.',
+
+    // One-time account credentials
+    'credentials_modal_title'   => 'Your account has been created',
+    'credentials_modal_warning' => 'Copy your password now - for security it will not be shown again.',
+    'credentials_login_id'      => 'Login ID (your phone number)',
+    'credentials_modal_hint'    => 'Use these details to sign in and track your order. You can change the password any time from your account.',
+    'credentials_modal_ack'     => 'I have saved my password somewhere safe.',
+    'credentials_modal_done'    => 'Continue',
+    'copy'                      => 'Copy',
+    'copied'                    => 'Copied',
+
+    // Product chat buttons
+    'chat_prompt'               => 'Have a question about this product?',
+    'order_on_whatsapp'         => 'Order on WhatsApp',
+    'order_on_messenger'        => 'Chat on Messenger',
+    'messenger_details_copied'  => '',
 ];

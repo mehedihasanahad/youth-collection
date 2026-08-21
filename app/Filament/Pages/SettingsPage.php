@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Setting;
+use App\Services\ProductChatService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -14,9 +15,13 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 class SettingsPage extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
+
     protected static ?string $navigationGroup = 'Settings';
+
     protected static ?string $navigationLabel = 'Store Settings';
+
     protected static ?string $title = 'Store Settings';
+
     protected static ?int $navigationSort = 1;
 
     protected static string $view = 'filament.pages.settings-page';
@@ -24,95 +29,115 @@ class SettingsPage extends Page
     public static function canAccess(): bool
     {
         $user = auth()->user();
+
         return $user && ($user->isSuperAdmin() || $user->hasPermission('edit_settings'));
     }
 
     // Form state
-    public array $general  = [];
-    public array $contact  = [];
-    public array $payment  = [];
-    public array $social   = [];
-    public array $oauth    = [];
+    public array $general = [];
+
+    public array $contact = [];
+
+    public array $payment = [];
+
+    public array $social = [];
+
+    public array $oauth = [];
+
     public array $homepage = [];
-    public array $seo      = [];
-    public array $pixel    = [];
+
+    public array $seo = [];
+
+    public array $pixel = [];
+
+    public array $chat = [];
 
     // Branding / media — kept flat (no statePath) so FileUpload can store files properly
-    public ?array $site_logo          = [];
-    public ?array $site_favicon       = [];
+    public ?array $site_logo = [];
+
+    public ?array $site_favicon = [];
+
     public ?array $promo_banner_image = [];
-    public ?array $og_image           = [];
+
+    public ?array $og_image = [];
 
     public function mount(): void
     {
         $this->general = [
-            'site_name'             => Setting::get('site_name', config('app.name')),
-            'site_tagline'          => Setting::get('site_tagline', ''),
-            'site_description'      => Setting::get('site_description', ''),
-            'default_locale'        => Setting::get('default_locale', 'en'),
+            'site_name' => Setting::get('site_name', config('app.name')),
+            'site_tagline' => Setting::get('site_tagline', ''),
+            'site_description' => Setting::get('site_description', ''),
+            'default_locale' => Setting::get('default_locale', 'en'),
             'announcement_bar_text' => Setting::get('announcement_bar_text', ''),
         ];
 
         $this->contact = [
-            'contact_email'    => Setting::get('contact_email', ''),
-            'contact_phone'    => Setting::get('contact_phone', ''),
-            'whatsapp_number'  => Setting::get('whatsapp_number', ''),
-            'contact_address'  => Setting::get('contact_address', ''),
-            'contact_city'     => Setting::get('contact_city', ''),
+            'contact_email' => Setting::get('contact_email', ''),
+            'contact_phone' => Setting::get('contact_phone', ''),
+            'whatsapp_number' => Setting::get('whatsapp_number', ''),
+            'contact_address' => Setting::get('contact_address', ''),
+            'contact_city' => Setting::get('contact_city', ''),
         ];
 
         $this->payment = [
-            'bkash_merchant_number'     => Setting::get('bkash_merchant_number', env('BKASH_MERCHANT_NUMBER', '')),
-            'bkash_merchant_name'       => Setting::get('bkash_merchant_name', env('BKASH_MERCHANT_NAME', '')),
-            'nagad_merchant_number'     => Setting::get('nagad_merchant_number', env('NAGAD_MERCHANT_NUMBER', '')),
-            'nagad_merchant_name'       => Setting::get('nagad_merchant_name', env('NAGAD_MERCHANT_NAME', '')),
-            'sslcommerz_store_id'       => Setting::get('sslcommerz_store_id', ''),
+            'bkash_merchant_number' => Setting::get('bkash_merchant_number', env('BKASH_MERCHANT_NUMBER', '')),
+            'bkash_merchant_name' => Setting::get('bkash_merchant_name', env('BKASH_MERCHANT_NAME', '')),
+            'nagad_merchant_number' => Setting::get('nagad_merchant_number', env('NAGAD_MERCHANT_NUMBER', '')),
+            'nagad_merchant_name' => Setting::get('nagad_merchant_name', env('NAGAD_MERCHANT_NAME', '')),
+            'sslcommerz_store_id' => Setting::get('sslcommerz_store_id', ''),
             'sslcommerz_store_password' => Setting::get('sslcommerz_store_password', ''),
-            'sslcommerz_is_live'        => (bool) Setting::get('sslcommerz_is_live', '0'),
-            'cod_enabled'               => (bool) Setting::get('cod_enabled', '1'),
+            'sslcommerz_is_live' => (bool) Setting::get('sslcommerz_is_live', '0'),
+            'cod_enabled' => (bool) Setting::get('cod_enabled', '1'),
         ];
 
-
         $this->social = [
-            'facebook_url'  => Setting::get('facebook_url', ''),
+            'facebook_url' => Setting::get('facebook_url', ''),
             'instagram_url' => Setting::get('instagram_url', ''),
-            'youtube_url'   => Setting::get('youtube_url', ''),
-            'twitter_url'   => Setting::get('twitter_url', ''),
+            'youtube_url' => Setting::get('youtube_url', ''),
+            'twitter_url' => Setting::get('twitter_url', ''),
         ];
 
         $this->oauth = [
             'google_login_enabled' => (bool) Setting::get('google_login_enabled', '0'),
-            'google_client_id'     => Setting::get('google_client_id', ''),
+            'google_client_id' => Setting::get('google_client_id', ''),
             'google_client_secret' => Setting::get('google_client_secret', ''),
         ];
 
         $this->seo = [
-            'meta_title'       => Setting::get('meta_title', ''),
+            'meta_title' => Setting::get('meta_title', ''),
             'meta_description' => Setting::get('meta_description', ''),
-            'meta_keywords'    => Setting::get('meta_keywords', ''),
-            'robots_txt'       => Setting::get('robots_txt', "User-agent: *\nAllow: /\nDisallow: /admin/\nSitemap: " . url('/sitemap.xml')),
+            'meta_keywords' => Setting::get('meta_keywords', ''),
+            'robots_txt' => Setting::get('robots_txt', "User-agent: *\nAllow: /\nDisallow: /admin/\nSitemap: ".url('/sitemap.xml')),
         ];
 
         $this->pixel = [
             'facebook_pixel_enabled' => (bool) Setting::get('facebook_pixel_enabled', '0'),
-            'facebook_pixel_id'      => Setting::get('facebook_pixel_id', ''),
+            'facebook_pixel_id' => Setting::get('facebook_pixel_id', ''),
+        ];
+
+        $this->chat = [
+            'chat_whatsapp_enabled' => (bool) Setting::get('chat_whatsapp_enabled', '0'),
+            'chat_whatsapp_number' => Setting::get('chat_whatsapp_number', Setting::get('whatsapp_number', '')),
+            'chat_messenger_enabled' => (bool) Setting::get('chat_messenger_enabled', '0'),
+            'chat_messenger_id' => Setting::get('chat_messenger_id', ''),
+            'chat_message_template' => Setting::get('chat_message_template', ProductChatService::DEFAULT_TEMPLATE),
         ];
 
         $this->homepage = [
-            'promo_banner_enabled'     => (bool) Setting::get('promo_banner_enabled', '1'),
-            'promo_banner_label'       => Setting::get('promo_banner_label', 'Up To'),
-            'promo_banner_headline'    => Setting::get('promo_banner_headline', '20% OFF'),
-            'promo_banner_subtext'     => Setting::get('promo_banner_subtext', 'On New Collection'),
+            'promo_banner_enabled' => (bool) Setting::get('promo_banner_enabled', '1'),
+            'promo_banner_label' => Setting::get('promo_banner_label', 'Up To'),
+            'promo_banner_headline' => Setting::get('promo_banner_headline', '20% OFF'),
+            'promo_banner_subtext' => Setting::get('promo_banner_subtext', 'On New Collection'),
             'promo_banner_button_text' => Setting::get('promo_banner_button_text', 'Shop Now'),
-            'promo_banner_button_url'  => Setting::get('promo_banner_button_url', ''),
+            'promo_banner_button_url' => Setting::get('promo_banner_button_url', ''),
         ];
 
         // Hydrate flat FileUpload properties from stored paths.
         // Filament v3 FileUpload expects [path => path] when loading existing files.
-        $logoPath    = Setting::get('site_logo', '');
+        $logoPath = Setting::get('site_logo', '');
         $faviconPath = Setting::get('site_favicon', '');
 
-        $this->site_logo    = $logoPath    ? [$logoPath    => $logoPath]    : [];
+        $this->site_logo = $logoPath ? [$logoPath => $logoPath] : [];
         $this->site_favicon = $faviconPath ? [$faviconPath => $faviconPath] : [];
 
         $promoImagePath = Setting::get('promo_banner_image', '');
@@ -124,7 +149,7 @@ class SettingsPage extends Page
 
     protected function getForms(): array
     {
-        return ['brandingForm', 'generalForm', 'contactForm', 'paymentForm', 'socialForm', 'oauthForm', 'homepageForm', 'homepageImageForm', 'seoForm', 'ogImageForm', 'pixelForm'];
+        return ['brandingForm', 'generalForm', 'contactForm', 'paymentForm', 'socialForm', 'oauthForm', 'chatForm', 'homepageForm', 'homepageImageForm', 'seoForm', 'ogImageForm', 'pixelForm'];
     }
 
     public function brandingForm(Form $form): Form
@@ -231,7 +256,6 @@ class SettingsPage extends Page
         ])->statePath('payment');
     }
 
-
     public function socialForm(Form $form): Form
     {
         return $form->schema([
@@ -264,9 +288,9 @@ class SettingsPage extends Page
                     'dimensions:width=1200,height=450',
                 ])
                 ->validationMessages([
-                    'image'      => 'The file must be a valid image.',
-                    'mimes'      => 'Only JPEG, PNG, and WebP images are accepted.',
-                    'max'        => 'The image must not exceed 3 MB.',
+                    'image' => 'The file must be a valid image.',
+                    'mimes' => 'Only JPEG, PNG, and WebP images are accepted.',
+                    'max' => 'The image must not exceed 3 MB.',
                     'dimensions' => 'Image must be exactly 1200 × 450 px.',
                 ]),
         ]);
@@ -417,6 +441,49 @@ class SettingsPage extends Page
         ])->statePath('pixel');
     }
 
+    public function chatForm(Form $form): Form
+    {
+        return $form->schema([
+            Forms\Components\Section::make('WhatsApp')->schema([
+                Forms\Components\Toggle::make('chat_whatsapp_enabled')
+                    ->label('Show WhatsApp button')
+                    ->inline(false)
+                    ->live()
+                    ->columnSpanFull(),
+                Forms\Components\TextInput::make('chat_whatsapp_number')
+                    ->label('WhatsApp Number')
+                    ->tel()
+                    ->placeholder('01712345678')
+                    ->nullable()
+                    ->visible(fn ($get) => $get('chat_whatsapp_enabled'))
+                    ->helperText('Bangladesh numbers can be entered as 01XXXXXXXXX. For other countries use the full international number.'),
+            ])->columns(2),
+
+            Forms\Components\Section::make('Messenger')->schema([
+                Forms\Components\Toggle::make('chat_messenger_enabled')
+                    ->label('Show Messenger button')
+                    ->inline(false)
+                    ->live()
+                    ->columnSpanFull(),
+                Forms\Components\TextInput::make('chat_messenger_id')
+                    ->label('Facebook Page Username or ID')
+                    ->placeholder('youthcollection')
+                    ->nullable()
+                    ->visible(fn ($get) => $get('chat_messenger_enabled'))
+                    ->helperText('The name after facebook.com/ — a full page URL also works. Messenger does not support pre-filled messages, so the product details are copied to the customer\'s clipboard to paste into the chat.'),
+            ])->columns(2),
+
+            Forms\Components\Section::make('Message')->schema([
+                Forms\Components\Textarea::make('chat_message_template')
+                    ->label('Pre-filled Message')
+                    ->rows(5)
+                    ->nullable()
+                    ->columnSpanFull()
+                    ->helperText('Available placeholders: {product_name}, {price}, {product_url}, {sku}. Leave blank to use the default message.'),
+            ]),
+        ])->statePath('chat');
+    }
+
     public function save(): void
     {
         $this->generalForm->validate();
@@ -428,12 +495,12 @@ class SettingsPage extends Page
         //   - [uuid => TemporaryUploadedFile]  — a new upload waiting to be stored
         //   - ['settings/file.png' => 'settings/file.png']  — an already-stored file (no action needed)
         //   - []  — cleared / no image
-        $logoPath       = $this->storeOrKeep($this->site_logo,          'settings');
-        $faviconPath    = $this->storeOrKeep($this->site_favicon,       'settings');
+        $logoPath = $this->storeOrKeep($this->site_logo, 'settings');
+        $faviconPath = $this->storeOrKeep($this->site_favicon, 'settings');
         $promoImagePath = $this->storeOrKeep($this->promo_banner_image, 'banners');
 
-        Setting::set('site_logo',         $logoPath,       'branding');
-        Setting::set('site_favicon',      $faviconPath,    'branding');
+        Setting::set('site_logo', $logoPath, 'branding');
+        Setting::set('site_favicon', $faviconPath, 'branding');
         Setting::set('promo_banner_image', $promoImagePath, 'homepage');
 
         foreach ($this->general as $key => $value) {
@@ -467,6 +534,10 @@ class SettingsPage extends Page
             Setting::set($key, is_bool($value) ? ($value ? '1' : '0') : $value, 'pixel');
         }
 
+        foreach ($this->chat as $key => $value) {
+            Setting::set($key, is_bool($value) ? ($value ? '1' : '0') : $value, 'chat');
+        }
+
         Cache::forget('settings.public');
 
         Notification::make()->title('Settings saved successfully')->success()->send();
@@ -489,6 +560,7 @@ class SettingsPage extends Page
         // New upload — Livewire TemporaryUploadedFile instance
         if ($first instanceof TemporaryUploadedFile) {
             $path = $first->store($directory, 'public');
+
             return $path ?: '';
         }
 

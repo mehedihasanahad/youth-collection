@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Support\PhoneNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
@@ -21,24 +23,46 @@ class PasswordResetLinkController extends Controller
     /**
      * Handle an incoming password reset link request.
      *
-     * @throws \Illuminate\Validation\ValidationException
+     * The customer identifies themselves with their phone number; the reset link
+     * is delivered to the email address stored on that account. Accounts without
+     * an email have no self-service recovery channel and are sent to support.
      */
     public function store(Request $request): RedirectResponse
     {
-        $request->validate([
-            'email' => ['required', 'email'],
+        $request->merge([
+            'phone' => PhoneNumber::normalize($request->input('phone')) ?? trim((string) $request->input('phone', '')),
         ]);
 
-        // We will send the password reset link to this user. Once we have attempted
-        // to send the link, we will examine the response then see the message we
-        // need to show to the user. Finally, we'll send out a proper response.
-        $status = Password::sendResetLink(
-            $request->only('email')
+        $request->validate(
+            ['phone' => ['required', 'string', 'regex:'.PhoneNumber::REGEX]],
+            ['phone.regex' => __('front.phone_invalid')]
         );
 
+        $user = User::where('phone', $request->input('phone'))->first();
+
+        if (! $user) {
+            return back()->withInput($request->only('phone'))
+                ->withErrors(['phone' => __('front.password_reset_no_account')]);
+        }
+
+        if (! $user->hasEmail()) {
+            return back()->withInput($request->only('phone'))
+                ->withErrors(['phone' => __('front.password_reset_no_email')]);
+        }
+
+        $status = Password::sendResetLink(['email' => $user->email]);
+
         return $status == Password::RESET_LINK_SENT
-                    ? back()->with('status', __($status))
-                    : back()->withInput($request->only('email'))
-                        ->withErrors(['email' => __($status)]);
+                    ? back()->with('status', __('front.password_reset_sent', ['email' => $this->maskEmail($user->email)]))
+                    : back()->withInput($request->only('phone'))
+                        ->withErrors(['phone' => __($status)]);
+    }
+
+    /** j***@example.com — enough for the customer to recognise the inbox, not enough to harvest it. */
+    private function maskEmail(string $email): string
+    {
+        [$local, $domain] = explode('@', $email, 2);
+
+        return mb_substr($local, 0, 1).str_repeat('*', max(mb_strlen($local) - 1, 1)).'@'.$domain;
     }
 }

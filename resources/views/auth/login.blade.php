@@ -30,17 +30,19 @@
             <form method="POST" action="{{ route('login') }}" class="space-y-5">
                 @csrf
 
-                {{-- Email --}}
+                {{-- Phone number --}}
                 <div>
-                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
-                        {{ __('front.email') }}
+                    <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">
+                        {{ __('front.phone_number') }}
                     </label>
-                    <input type="email" id="email" name="email"
-                           value="{{ old('email') }}"
-                           required autofocus autocomplete="username"
+                    <input type="tel" id="phone" name="phone"
+                           value="{{ old('phone') }}"
+                           placeholder="01XXXXXXXXX"
+                           inputmode="tel"
+                           required autofocus autocomplete="tel"
                            class="w-full px-4 py-2.5 border rounded-xl text-sm bg-gray-50 focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100 focus:outline-none transition-all
-                                  {{ $errors->has('email') ? 'border-red-400' : 'border-gray-200' }}">
-                    @error('email')
+                                  {{ $errors->has('phone') ? 'border-red-400' : 'border-gray-200' }}">
+                    @error('phone')
                         <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                     @enderror
                 </div>

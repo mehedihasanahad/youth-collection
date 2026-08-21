@@ -6,7 +6,9 @@
     $pixelUser = auth()->user();
     $pixelAdvanced = [];
     if ($pixelUser) {
-        $pixelAdvanced['em'] = hash('sha256', strtolower(trim($pixelUser->email)));
+        if (!empty($pixelUser->email)) {
+            $pixelAdvanced['em'] = hash('sha256', strtolower(trim($pixelUser->email)));
+        }
         if (!empty($pixelUser->phone)) {
             $pixelAdvanced['ph'] = hash('sha256', preg_replace('/\D/', '', $pixelUser->phone));
         }

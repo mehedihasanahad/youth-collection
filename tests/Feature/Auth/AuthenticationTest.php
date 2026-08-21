@@ -17,25 +17,49 @@ class AuthenticationTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_users_can_authenticate_using_the_login_screen(): void
+    public function test_users_can_authenticate_with_their_phone_number(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['phone' => '01712345678']);
 
         $response = $this->post('/login', [
-            'email' => $user->email,
+            'phone' => '01712345678',
             'password' => 'password',
         ]);
 
-        $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertAuthenticatedAs($user);
+        $response->assertRedirect(route('home', absolute: false));
+    }
+
+    public function test_phone_number_is_normalised_before_authenticating(): void
+    {
+        $user = User::factory()->create(['phone' => '01712345678']);
+
+        $this->post('/login', [
+            'phone' => '+880 1712-345678',
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_legacy_accounts_can_still_authenticate_with_their_email(): void
+    {
+        $user = User::factory()->create(['email' => 'legacy@example.com', 'phone' => null]);
+
+        $this->post('/login', [
+            'phone' => 'legacy@example.com',
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['phone' => '01712345678']);
 
         $this->post('/login', [
-            'email' => $user->email,
+            'phone' => $user->phone,
             'password' => 'wrong-password',
         ]);
 

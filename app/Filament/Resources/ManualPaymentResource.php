@@ -22,15 +22,22 @@ class ManualPaymentResource extends Resource
 {
     use HasResourcePermissions;
 
-    protected static string $viewPermission   = 'view_payments';
-    protected static string $editPermission   = 'verify_payments';
+    protected static string $viewPermission = 'view_payments';
+
+    protected static string $editPermission = 'verify_payments';
+
     protected static string $createPermission = '';
+
     protected static string $deletePermission = '';
 
     protected static ?string $model = ManualPayment::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
+
     protected static ?string $navigationGroup = 'Commerce';
+
     protected static ?string $navigationLabel = 'Manual Payments';
+
     protected static ?int $navigationSort = 2;
 
     public static function getNavigationBadge(): ?string
@@ -86,7 +93,7 @@ class ManualPaymentResource extends Resource
                     ->color(fn ($state) => match ($state) {
                         'verified' => 'success',
                         'rejected' => 'danger',
-                        default    => 'warning',
+                        default => 'warning',
                     }),
                 Infolists\Components\TextEntry::make('created_at')->dateTime()->label('Submitted'),
             ])->columns(3),
@@ -128,7 +135,7 @@ class ManualPaymentResource extends Resource
                     ->colors([
                         'warning' => 'pending',
                         'success' => 'verified',
-                        'danger'  => 'rejected',
+                        'danger' => 'rejected',
                     ]),
 
                 Tables\Columns\TextColumn::make('created_at')
@@ -137,7 +144,7 @@ class ManualPaymentResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'pending'  => 'Pending',
+                        'pending' => 'Pending',
                         'verified' => 'Verified',
                         'rejected' => 'Rejected',
                     ]),
@@ -155,18 +162,21 @@ class ManualPaymentResource extends Resource
                     ->requiresConfirmation()
                     ->action(function ($record) {
                         $record->update([
-                            'status'      => 'verified',
+                            'status' => 'verified',
                             'verified_by' => auth()->id(),
                             'verified_at' => now(),
                         ]);
                         $record->order->update([
                             'payment_status' => 'paid',
-                            'status'         => 'processing',
+                            'status' => 'processing',
                         ]);
                         try {
                             $order = $record->order->load(['items', 'user']);
-                            Mail::to($order->user->email)->queue(new PaymentVerified($order));
-                        } catch (\Throwable) {}
+                            if ($order->user?->hasEmail()) {
+                                Mail::to($order->user->email)->queue(new PaymentVerified($order));
+                            }
+                        } catch (\Throwable) {
+                        }
                         Notification::make()->title('Payment verified & order moved to Processing')->success()->send();
                     }),
 
@@ -181,16 +191,19 @@ class ManualPaymentResource extends Resource
                     ])
                     ->action(function ($record, array $data) {
                         $record->update([
-                            'status'           => 'rejected',
-                            'verified_by'      => auth()->id(),
-                            'verified_at'      => now(),
+                            'status' => 'rejected',
+                            'verified_by' => auth()->id(),
+                            'verified_at' => now(),
                             'rejection_reason' => $data['rejection_reason'],
                         ]);
                         $record->order->update(['payment_status' => 'failed']);
                         try {
                             $order = $record->order->load(['items', 'user']);
-                            Mail::to($order->user->email)->queue(new PaymentRejected($order, $record));
-                        } catch (\Throwable) {}
+                            if ($order->user?->hasEmail()) {
+                                Mail::to($order->user->email)->queue(new PaymentRejected($order, $record));
+                            }
+                        } catch (\Throwable) {
+                        }
                         Notification::make()->title('Payment rejected')->danger()->send();
                     }),
             ])
@@ -201,7 +214,7 @@ class ManualPaymentResource extends Resource
     {
         return [
             'index' => Pages\ListManualPayments::route('/'),
-            'view'  => Pages\ViewManualPayment::route('/{record}'),
+            'view' => Pages\ViewManualPayment::route('/{record}'),
         ];
     }
 }

@@ -19,24 +19,47 @@ class PasswordResetTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_reset_password_link_can_be_requested(): void
+    public function test_reset_password_link_can_be_requested_with_a_phone_number(): void
     {
         Notification::fake();
 
-        $user = User::factory()->create();
+        $user = User::factory()->create(['phone' => '01712345678']);
 
-        $this->post('/forgot-password', ['email' => $user->email]);
+        $this->post('/forgot-password', ['phone' => '01712345678'])
+            ->assertSessionHasNoErrors();
 
         Notification::assertSentTo($user, ResetPassword::class);
+    }
+
+    public function test_reset_link_is_refused_for_an_unknown_phone_number(): void
+    {
+        Notification::fake();
+
+        $this->post('/forgot-password', ['phone' => '01712345678'])
+            ->assertSessionHasErrors('phone');
+
+        Notification::assertNothingSent();
+    }
+
+    public function test_reset_link_is_refused_when_the_account_has_no_email(): void
+    {
+        Notification::fake();
+
+        User::factory()->create(['phone' => '01712345678', 'email' => null]);
+
+        $this->post('/forgot-password', ['phone' => '01712345678'])
+            ->assertSessionHasErrors('phone');
+
+        Notification::assertNothingSent();
     }
 
     public function test_reset_password_screen_can_be_rendered(): void
     {
         Notification::fake();
 
-        $user = User::factory()->create();
+        $user = User::factory()->create(['phone' => '01712345678']);
 
-        $this->post('/forgot-password', ['email' => $user->email]);
+        $this->post('/forgot-password', ['phone' => '01712345678']);
 
         Notification::assertSentTo($user, ResetPassword::class, function ($notification) {
             $response = $this->get('/reset-password/'.$notification->token);
@@ -51,9 +74,9 @@ class PasswordResetTest extends TestCase
     {
         Notification::fake();
 
-        $user = User::factory()->create();
+        $user = User::factory()->create(['phone' => '01712345678']);
 
-        $this->post('/forgot-password', ['email' => $user->email]);
+        $this->post('/forgot-password', ['phone' => '01712345678']);
 
         Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user) {
             $response = $this->post('/reset-password', [

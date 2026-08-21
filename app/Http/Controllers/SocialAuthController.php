@@ -37,7 +37,7 @@ class SocialAuthController extends Controller
         try {
             $googleUser = Socialite::driver('google')->user();
         } catch (\Exception $e) {
-            return redirect()->route('login')->withErrors(['email' => 'Google authentication failed. Please try again.']);
+            return redirect()->route('login')->withErrors(['phone' => 'Google authentication failed. Please try again.']);
         }
 
         // Find existing user by email
@@ -65,7 +65,7 @@ class SocialAuthController extends Controller
         }
 
         if (! $user->is_active) {
-            return redirect()->route('login')->withErrors(['email' => 'Your account is inactive. Please contact support.']);
+            return redirect()->route('login')->withErrors(['phone' => 'Your account is inactive. Please contact support.']);
         }
 
         Auth::login($user, remember: true);

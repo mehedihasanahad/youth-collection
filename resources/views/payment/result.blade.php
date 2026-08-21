@@ -87,4 +87,6 @@
 
     </div>
 </div>
+
+@include('partials.new-account-credentials-modal')
 @endsection

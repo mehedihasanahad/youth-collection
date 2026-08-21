@@ -492,6 +492,8 @@
                     @endif
                 </form>
 
+                @include('partials.product-chat-buttons')
+
             </div>
 
             {{-- SKU / Weight meta --}}

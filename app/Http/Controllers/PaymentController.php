@@ -6,6 +6,7 @@ use App\Mail\OrderConfirmation;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
 use App\Models\PaymentTransaction;
+use App\Models\Setting;
 use App\Services\SslCommerzService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -30,38 +31,38 @@ class PaymentController extends Controller
             ->where('payment_method', Order::METHOD_SSLCOMMERZ)
             ->firstOrFail();
 
-        $ssl = new SslCommerzService();
+        $ssl = new SslCommerzService;
 
         $payload = [
-            'total_amount'  => number_format((float) $order->total_amount, 2, '.', ''),
-            'currency'      => 'BDT',
-            'tran_id'       => $order->order_number,
-            'success_url'   => route('payment.success'),
-            'fail_url'      => route('payment.fail'),
-            'cancel_url'    => route('payment.cancel'),
+            'total_amount' => number_format((float) $order->total_amount, 2, '.', ''),
+            'currency' => 'BDT',
+            'tran_id' => $order->order_number,
+            'success_url' => route('payment.success'),
+            'fail_url' => route('payment.fail'),
+            'cancel_url' => route('payment.cancel'),
 
             // Customer info
-            'cus_name'      => $order->ship_name,
-            'cus_email'     => $order->user->email,
-            'cus_add1'      => $order->ship_address,
-            'cus_city'      => $order->ship_city,
-            'cus_state'     => $order->ship_district,
-            'cus_postcode'  => $order->ship_zip ?: '0000',
-            'cus_country'   => 'Bangladesh',
-            'cus_phone'     => $order->ship_phone,
+            'cus_name' => $order->ship_name,
+            'cus_email' => $this->gatewayEmail($order),
+            'cus_add1' => $order->ship_address,
+            'cus_city' => $order->ship_city ?: $order->ship_district,
+            'cus_state' => $order->ship_district,
+            'cus_postcode' => $order->ship_zip ?: '0000',
+            'cus_country' => 'Bangladesh',
+            'cus_phone' => $order->ship_phone,
 
             // Shipping info
-            'ship_name'     => $order->ship_name,
-            'ship_add1'     => $order->ship_address,
-            'ship_city'     => $order->ship_city,
-            'ship_state'    => $order->ship_district,
+            'ship_name' => $order->ship_name,
+            'ship_add1' => $order->ship_address,
+            'ship_city' => $order->ship_city ?: $order->ship_district,
+            'ship_state' => $order->ship_district,
             'ship_postcode' => $order->ship_zip ?: '0000',
-            'ship_country'  => 'Bangladesh',
+            'ship_country' => 'Bangladesh',
 
             // Product info (summary)
-            'product_name'     => config('app.name') . ' Order ' . $order->order_number,
+            'product_name' => config('app.name').' Order '.$order->order_number,
             'product_category' => 'General',
-            'product_profile'  => 'general',
+            'product_profile' => 'general',
         ];
 
         $response = $ssl->initiate($payload);
@@ -76,11 +77,11 @@ class PaymentController extends Controller
         // Store transaction record
         PaymentTransaction::create([
             'order_id' => $order->id,
-            'gateway'  => PaymentTransaction::GATEWAY_SSLCOMMERZ,
-            'tran_id'  => $order->order_number,
-            'amount'   => $order->total_amount,
+            'gateway' => PaymentTransaction::GATEWAY_SSLCOMMERZ,
+            'tran_id' => $order->order_number,
+            'amount' => $order->total_amount,
             'currency' => 'BDT',
-            'status'   => PaymentTransaction::STATUS_PENDING,
+            'status' => PaymentTransaction::STATUS_PENDING,
         ]);
 
         return redirect()->away($response['GatewayPageURL']);
@@ -97,35 +98,35 @@ class PaymentController extends Controller
         abort_if($order->payment_method !== Order::METHOD_SSLCOMMERZ, 403);
         abort_if($order->payment_status === Order::PAYMENT_PAID, 403);
 
-        $ssl = new SslCommerzService();
+        $ssl = new SslCommerzService;
 
         $payload = [
-            'total_amount'  => number_format((float) $order->total_amount, 2, '.', ''),
-            'currency'      => 'BDT',
-            'tran_id'       => $order->order_number,
-            'success_url'   => route('payment.success'),
-            'fail_url'      => route('payment.fail'),
-            'cancel_url'    => route('payment.cancel'),
+            'total_amount' => number_format((float) $order->total_amount, 2, '.', ''),
+            'currency' => 'BDT',
+            'tran_id' => $order->order_number,
+            'success_url' => route('payment.success'),
+            'fail_url' => route('payment.fail'),
+            'cancel_url' => route('payment.cancel'),
 
-            'cus_name'      => $order->ship_name,
-            'cus_email'     => $order->user->email,
-            'cus_add1'      => $order->ship_address,
-            'cus_city'      => $order->ship_city,
-            'cus_state'     => $order->ship_district,
-            'cus_postcode'  => $order->ship_zip ?: '0000',
-            'cus_country'   => 'Bangladesh',
-            'cus_phone'     => $order->ship_phone,
+            'cus_name' => $order->ship_name,
+            'cus_email' => $this->gatewayEmail($order),
+            'cus_add1' => $order->ship_address,
+            'cus_city' => $order->ship_city ?: $order->ship_district,
+            'cus_state' => $order->ship_district,
+            'cus_postcode' => $order->ship_zip ?: '0000',
+            'cus_country' => 'Bangladesh',
+            'cus_phone' => $order->ship_phone,
 
-            'ship_name'     => $order->ship_name,
-            'ship_add1'     => $order->ship_address,
-            'ship_city'     => $order->ship_city,
-            'ship_state'    => $order->ship_district,
+            'ship_name' => $order->ship_name,
+            'ship_add1' => $order->ship_address,
+            'ship_city' => $order->ship_city ?: $order->ship_district,
+            'ship_state' => $order->ship_district,
             'ship_postcode' => $order->ship_zip ?: '0000',
-            'ship_country'  => 'Bangladesh',
+            'ship_country' => 'Bangladesh',
 
-            'product_name'     => config('app.name') . ' Order ' . $order->order_number,
+            'product_name' => config('app.name').' Order '.$order->order_number,
             'product_category' => 'General',
-            'product_profile'  => 'general',
+            'product_profile' => 'general',
         ];
 
         $response = $ssl->initiate($payload);
@@ -142,10 +143,10 @@ class PaymentController extends Controller
         PaymentTransaction::updateOrCreate(
             ['order_id' => $order->id, 'gateway' => PaymentTransaction::GATEWAY_SSLCOMMERZ],
             [
-                'tran_id'  => $order->order_number,
-                'amount'   => $order->total_amount,
+                'tran_id' => $order->order_number,
+                'amount' => $order->total_amount,
                 'currency' => 'BDT',
-                'status'   => PaymentTransaction::STATUS_PENDING,
+                'status' => PaymentTransaction::STATUS_PENDING,
             ]
         );
 
@@ -159,7 +160,7 @@ class PaymentController extends Controller
     public function success(Request $request)
     {
         $tranId = $request->input('tran_id');
-        $valId  = $request->input('val_id');
+        $valId = $request->input('val_id');
 
         $order = Order::where('order_number', $tranId)
             ->where('payment_method', Order::METHOD_SSLCOMMERZ)
@@ -175,42 +176,46 @@ class PaymentController extends Controller
         }
 
         // Re-validate with SSLCommerz
-        $ssl        = new SslCommerzService();
+        $ssl = new SslCommerzService;
         $validation = $ssl->validate($valId);
 
         if (($validation['status'] ?? '') !== 'VALID' && ($validation['status'] ?? '') !== 'VALIDATED') {
             $this->handleFailure($order, 'Payment validation failed.');
+
             return redirect()->route('payment.result', $order->order_number);
         }
 
         // Confirm payment
         $order->update([
             'payment_status' => Order::PAYMENT_PAID,
-            'status'         => Order::STATUS_PROCESSING,
+            'status' => Order::STATUS_PROCESSING,
         ]);
 
         PaymentTransaction::where('order_id', $order->id)
             ->where('gateway', PaymentTransaction::GATEWAY_SSLCOMMERZ)
             ->update([
-                'status'        => PaymentTransaction::STATUS_SUCCESS,
-                'val_id'        => $valId,
-                'bank_tran_id'  => $request->input('bank_tran_id'),
-                'card_type'     => $request->input('card_type'),
-                'raw_response'  => $request->all(),
+                'status' => PaymentTransaction::STATUS_SUCCESS,
+                'val_id' => $valId,
+                'bank_tran_id' => $request->input('bank_tran_id'),
+                'card_type' => $request->input('card_type'),
+                'raw_response' => $request->all(),
             ]);
 
         OrderStatusHistory::create([
-            'order_id'   => $order->id,
-            'status'     => Order::STATUS_PROCESSING,
-            'notes'      => 'Payment confirmed via SSLCommerz.',
+            'order_id' => $order->id,
+            'status' => Order::STATUS_PROCESSING,
+            'notes' => 'Payment confirmed via SSLCommerz.',
             'changed_by' => $order->user_id,
             'created_at' => now(),
         ]);
 
         try {
             $order->load(['items', 'user']);
-            Mail::to($order->user->email)->queue(new OrderConfirmation($order));
-        } catch (\Throwable) {}
+            if ($order->user?->hasEmail()) {
+                Mail::to($order->user->email)->queue(new OrderConfirmation($order));
+            }
+        } catch (\Throwable) {
+        }
 
         return redirect()->route('payment.result', $order->order_number);
     }
@@ -229,6 +234,7 @@ class PaymentController extends Controller
         }
 
         $orderNumber = $order?->order_number ?? '';
+
         return $orderNumber
             ? redirect()->route('payment.result', $orderNumber)
             : redirect()->route('home');
@@ -251,6 +257,7 @@ class PaymentController extends Controller
         }
 
         $orderNumber = $order?->order_number ?? '';
+
         return $orderNumber
             ? redirect()->route('payment.result', $orderNumber)
             : redirect()->route('home');
@@ -268,12 +275,14 @@ class PaymentController extends Controller
             ->with(['items.product', 'items.variant'])
             ->firstOrFail();
 
-        $isOwner    = auth()->check() && auth()->id() === $order->user_id;
+        $isOwner = auth()->check() && auth()->id() === $order->user_id;
         $hasSession = session('sslcommerz_order_id') === $order->id;
 
         abort_unless($isOwner || $hasSession, 403);
 
-        return view('payment.result', compact('order'));
+        $newCredentials = session()->pull(CheckoutController::NEW_CREDENTIALS_KEY);
+
+        return view('payment.result', compact('order', 'newCredentials'));
     }
 
     private function handleFailure(Order $order, string $reason): void
@@ -283,5 +292,15 @@ class PaymentController extends Controller
         PaymentTransaction::where('order_id', $order->id)
             ->where('gateway', PaymentTransaction::GATEWAY_SSLCOMMERZ)
             ->update(['status' => PaymentTransaction::STATUS_FAILED]);
+    }
+
+    /**
+     * SSLCommerz rejects requests without a customer email, but email is now
+     * optional at checkout — fall back to the store's own contact address.
+     */
+    private function gatewayEmail(Order $order): string
+    {
+        return $order->user?->email
+            ?: (Setting::get('contact_email', '') ?: 'noreply@'.request()->getHost());
     }
 }

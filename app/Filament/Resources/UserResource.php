@@ -16,14 +16,20 @@ class UserResource extends Resource
 {
     use HasResourcePermissions;
 
-    protected static string $viewPermission   = 'view_users';
+    protected static string $viewPermission = 'view_users';
+
     protected static string $createPermission = 'create_users';
-    protected static string $editPermission   = 'edit_users';
+
+    protected static string $editPermission = 'edit_users';
+
     protected static string $deletePermission = 'delete_users';
 
     protected static ?string $model = User::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-users';
+
     protected static ?string $navigationGroup = 'Users & Access';
+
     protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
@@ -31,8 +37,18 @@ class UserResource extends Resource
         return $form->schema([
             Forms\Components\Section::make('User Info')->schema([
                 Forms\Components\TextInput::make('name')->required()->maxLength(191),
-                Forms\Components\TextInput::make('email')->email()->required()->unique(ignoreRecord: true),
-                Forms\Components\TextInput::make('phone')->maxLength(20)->nullable(),
+                Forms\Components\TextInput::make('phone')
+                    ->label('Phone Number')
+                    ->tel()
+                    ->required()
+                    ->maxLength(20)
+                    ->unique(ignoreRecord: true)
+                    ->helperText('Customers sign in with this number. Stored as 01XXXXXXXXX.'),
+                Forms\Components\TextInput::make('email')
+                    ->email()
+                    ->nullable()
+                    ->unique(ignoreRecord: true)
+                    ->helperText('Optional. Used for order emails and password recovery.'),
                 Forms\Components\TextInput::make('password')
                     ->password()
                     ->dehydrated(fn ($state) => filled($state))
@@ -64,22 +80,22 @@ class UserResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('email')->searchable()->copyable(),
-                Tables\Columns\TextColumn::make('phone')->placeholder('—'),
+                Tables\Columns\TextColumn::make('phone')->label('Phone')->searchable()->copyable()->placeholder('—'),
+                Tables\Columns\TextColumn::make('email')->searchable()->copyable()->placeholder('—'),
                 Tables\Columns\TextColumn::make('roles.name')
                     ->label('Role')
                     ->badge()
                     ->color(fn ($state) => match ($state) {
                         'super_admin' => 'danger',
-                        'admin'       => 'warning',
-                        'staff'       => 'info',
-                        default       => 'gray',
+                        'admin' => 'warning',
+                        'staff' => 'info',
+                        default => 'gray',
                     })
                     ->formatStateUsing(fn ($state) => match ($state) {
                         'super_admin' => 'Super Admin',
-                        'admin'       => 'Admin',
-                        'staff'       => 'Staff',
-                        default       => ucfirst($state),
+                        'admin' => 'Admin',
+                        'staff' => 'Staff',
+                        default => ucfirst($state),
                     })
                     ->placeholder('Customer'),
                 Tables\Columns\IconColumn::make('is_active')->boolean()->label('Active'),
@@ -93,12 +109,14 @@ class UserResource extends Resource
                     ->label('Role')
                     ->options([
                         'super_admin' => 'Super Admin',
-                        'admin'       => 'Admin',
-                        'staff'       => 'Staff',
-                        'customer'    => 'Customer (no role)',
+                        'admin' => 'Admin',
+                        'staff' => 'Staff',
+                        'customer' => 'Customer (no role)',
                     ])
                     ->query(function ($query, $data) {
-                        if (blank($data['value'])) return;
+                        if (blank($data['value'])) {
+                            return;
+                        }
                         if ($data['value'] === 'customer') {
                             $query->whereDoesntHave('roles');
                         } else {
@@ -117,9 +135,9 @@ class UserResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListUsers::route('/'),
+            'index' => Pages\ListUsers::route('/'),
             'create' => Pages\CreateUser::route('/create'),
-            'edit'   => Pages\EditUser::route('/{record}/edit'),
+            'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
     }
 }

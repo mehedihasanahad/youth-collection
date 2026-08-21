@@ -11,8 +11,8 @@
 
 <div class="card" style="margin: 24px 0;">
     <div class="card-row">
-        <span class="label">Email</span>
-        <span class="value">{{ $user->email }}</span>
+        <span class="label">Phone (your login)</span>
+        <span class="value">{{ $user->phone }}</span>
     </div>
     <div class="card-row">
         <span class="label">Password</span>

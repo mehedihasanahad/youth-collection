@@ -21,7 +21,7 @@
     @endif
     <div class="card-row">
         <span class="label">Shipping To</span>
-        <span class="value">{{ $order->ship_district }}, {{ $order->ship_city }}</span>
+        <span class="value">{{ $order->ship_district }}@if($order->ship_city), {{ $order->ship_city }}@endif</span>
     </div>
 </div>
 

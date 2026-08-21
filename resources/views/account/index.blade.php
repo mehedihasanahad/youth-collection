@@ -20,7 +20,7 @@
             <div class="bg-gradient-to-r from-primary-600 to-primary-700 rounded-2xl p-6 text-white">
                 <p class="text-sm text-primary-200 mb-1">{{ __('front.welcome_back') }}</p>
                 <h2 class="text-xl font-bold">{{ $user->name }}</h2>
-                <p class="text-sm text-primary-200 mt-1">{{ $user->email }}</p>
+                <p class="text-sm text-primary-200 mt-1">{{ $user->displayIdentifier() }}</p>
             </div>
 
             {{-- Stats row --}}

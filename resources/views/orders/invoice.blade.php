@@ -200,7 +200,7 @@
                 <div class="box-line">{{ $order->ship_phone }}</div>
                 <div class="box-line">{{ $order->ship_address }}</div>
                 <div class="box-line">
-                    {{ $order->ship_city }}@if($order->ship_district), {{ $order->ship_district }}@endif@if($order->ship_zip) — {{ $order->ship_zip }}@endif
+                    @if($order->ship_city){{ $order->ship_city }}, @endif{{ $order->ship_district }}
                 </div>
             </td>
             <td class="pay-box">

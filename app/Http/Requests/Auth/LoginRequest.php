@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Support\PhoneNumber;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -20,6 +21,19 @@ class LoginRequest extends FormRequest
     }
 
     /**
+     * Customers sign in with their phone number. Email is still accepted so
+     * accounts created before phone login was introduced keep working.
+     */
+    protected function prepareForValidation(): void
+    {
+        $login = trim((string) $this->input('phone', ''));
+
+        $this->merge([
+            'phone' => $this->isEmailLogin($login) ? $login : (PhoneNumber::normalize($login) ?? $login),
+        ]);
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
@@ -27,8 +41,15 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
+            'phone' => ['required', 'string', 'max:191'],
             'password' => ['required', 'string'],
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'phone' => __('front.phone_number'),
         ];
     }
 
@@ -41,11 +62,14 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        $login = (string) $this->string('phone');
+        $field = $this->isEmailLogin($login) ? 'email' : 'phone';
+
+        if (! Auth::attempt([$field => $login, 'password' => $this->input('password')], $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'email' => trans('auth.failed'),
+                'phone' => trans('auth.failed'),
             ]);
         }
 
@@ -68,7 +92,7 @@ class LoginRequest extends FormRequest
         $seconds = RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'email' => trans('auth.throttle', [
+            'phone' => trans('auth.throttle', [
                 'seconds' => $seconds,
                 'minutes' => ceil($seconds / 60),
             ]),
@@ -80,6 +104,11 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        return Str::transliterate(Str::lower($this->string('phone')).'|'.$this->ip());
+    }
+
+    private function isEmailLogin(string $login): bool
+    {
+        return str_contains($login, '@');
     }
 }

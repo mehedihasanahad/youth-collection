@@ -103,8 +103,7 @@
         <strong>{{ $order->ship_name }}</strong><br>
         {{ $order->ship_phone }}<br>
         {{ $order->ship_address }}<br>
-        {{ $order->ship_city }}, {{ $order->ship_district }}
-        @if($order->ship_zip) – {{ $order->ship_zip }}@endif
+        @if($order->ship_city){{ $order->ship_city }}, @endif{{ $order->ship_district }}
     </p>
 </div>
 

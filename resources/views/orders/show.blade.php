@@ -146,7 +146,7 @@
                             <p class="font-medium text-gray-800">{{ $order->ship_name }}</p>
                             <p>{{ $order->ship_phone }}</p>
                             <p>{{ $order->ship_address }}</p>
-                            <p>{{ $order->ship_city }}, {{ $order->ship_district }}{{ $order->ship_zip ? ' - ' . $order->ship_zip : '' }}</p>
+                            <p>{{ $order->ship_district }}</p>
                         </div>
                     </div>
                     <div class="p-6">

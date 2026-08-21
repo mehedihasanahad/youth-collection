@@ -19,7 +19,7 @@
                 </div>
                 <div class="min-w-0">
                     <p class="text-sm font-semibold text-gray-900 truncate">{{ auth()->user()->name }}</p>
-                    <p class="text-xs text-gray-400 truncate">{{ auth()->user()->email }}</p>
+                    <p class="text-xs text-gray-400 truncate">{{ auth()->user()->displayIdentifier() }}</p>
                 </div>
             </div>
         </div>

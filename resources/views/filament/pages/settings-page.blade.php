@@ -49,6 +49,14 @@
             {{ $this->oauthForm }}
         </x-filament::section>
 
+        {{-- Product Chat Buttons --}}
+        <x-filament::section class="mt-6">
+            <x-slot name="heading">Product Chat Buttons</x-slot>
+            <x-slot name="description">WhatsApp and Messenger buttons shown under Add to Cart on every product page. The product name, price and link are added to the message automatically.</x-slot>
+
+            {{ $this->chatForm }}
+        </x-filament::section>
+
         {{-- Homepage --}}
         <x-filament::section class="mt-6">
             <x-slot name="heading">Homepage</x-slot>

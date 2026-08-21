@@ -150,7 +150,7 @@
                 <p class="font-medium text-gray-800">{{ $order->ship_name }}</p>
                 <p>{{ $order->ship_phone }}</p>
                 <p>{{ $order->ship_address }}</p>
-                <p>{{ $order->ship_city }}, {{ $order->ship_district }}{{ $order->ship_zip ? ' - ' . $order->ship_zip : '' }}</p>
+                <p>{{ $order->ship_district }}</p>
             </div>
         </div>
 
@@ -183,6 +183,8 @@
     </div>
 
 </div>
+
+@include('partials.new-account-credentials-modal')
 @endsection
 
 @push('pixel-events')
@@ -212,7 +214,9 @@ if (typeof fbq !== 'undefined') {
         zp:           '{{ hash("sha256", trim($order->ship_zip)) }}',
         @endif
         @auth
+        @if(auth()->user()->email)
         em:           '{{ hash("sha256", strtolower(trim(auth()->user()->email))) }}',
+        @endif
         external_id:  '{{ hash("sha256", (string) auth()->id()) }}',
         @endauth
     });

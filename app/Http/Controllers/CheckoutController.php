@@ -15,6 +15,7 @@ use App\Models\PaymentTransaction;
 use App\Models\Setting;
 use App\Models\ShippingZoneDistrict;
 use App\Models\User;
+use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -23,6 +24,13 @@ use Illuminate\Support\Str;
 
 class CheckoutController extends Controller
 {
+    /**
+     * Session key holding the one-time login details of an account created during
+     * checkout for a customer who gave us no email address. Consumed — and cleared —
+     * by the confirmation screen.
+     */
+    public const NEW_CREDENTIALS_KEY = 'checkout.new_credentials';
+
     public function index()
     {
         $cartItems = $this->cartItems()
@@ -63,9 +71,9 @@ class CheckoutController extends Controller
         }
 
         $bkashNumber = Setting::get('bkash_merchant_number', '');
-        $bkashName   = Setting::get('bkash_merchant_name', '');
+        $bkashName = Setting::get('bkash_merchant_name', '');
         $nagadNumber = Setting::get('nagad_merchant_number', '');
-        $nagadName   = Setting::get('nagad_merchant_name', '');
+        $nagadName = Setting::get('nagad_merchant_name', '');
 
         $couponSession = session('checkout.coupon');
 
@@ -89,7 +97,7 @@ class CheckoutController extends Controller
 
         $zoneDistrict = ShippingZoneDistrict::with('zone')
             ->where('district_name', $request->district)
-            ->whereHas('zone', fn($q) => $q->where('is_active', true))
+            ->whereHas('zone', fn ($q) => $q->where('is_active', true))
             ->first();
 
         if (! $zoneDistrict) {
@@ -98,10 +106,11 @@ class CheckoutController extends Controller
 
         $rates = $zoneDistrict->zone->rates()->active()->get()->map(function ($rate) use ($subtotal) {
             $cost = $rate->isFreeFor($subtotal) ? 0 : (float) $rate->cost;
+
             return [
-                'id'                 => $rate->id,
-                'method_name'        => $rate->method_name,
-                'cost'               => $cost,
+                'id' => $rate->id,
+                'method_name' => $rate->method_name,
+                'cost' => $cost,
                 'estimated_days_min' => $rate->estimated_days_min,
                 'estimated_days_max' => $rate->estimated_days_max,
             ];
@@ -129,49 +138,57 @@ class CheckoutController extends Controller
             if ($request->expectsJson()) {
                 return response()->json(['success' => false, 'message' => __('front.coupon_invalid')], 422);
             }
+
             return back()->with('coupon_error', __('front.coupon_invalid'));
         }
 
         $discount = $coupon->calculateDiscount($subtotal);
 
         session(['checkout.coupon' => [
-            'id'       => $coupon->id,
-            'code'     => $coupon->code,
+            'id' => $coupon->id,
+            'code' => $coupon->code,
             'discount' => $discount,
         ]]);
 
         if ($request->expectsJson()) {
             return response()->json(['success' => true, 'code' => $coupon->code, 'discount' => $discount]);
         }
+
         return back()->with('coupon_success', __('front.coupon_applied', ['code' => $coupon->code]));
     }
 
     public function removeCoupon()
     {
         session()->forget('checkout.coupon');
+
         return back();
     }
 
     public function placeOrder(Request $request)
     {
+        // Normalise the phone up front — it doubles as the customer's account identifier.
+        $request->merge([
+            'ship_phone' => PhoneNumber::normalize($request->input('ship_phone')) ?? trim((string) $request->input('ship_phone', '')),
+            'email' => trim((string) $request->input('email', '')) ?: null,
+        ]);
+
         $rules = [];
 
+        // Email is optional for everyone; it is only used to send order updates.
         if (! auth()->check()) {
-            $rules['email'] = ['required', 'email:rfc', 'max:191'];
+            $rules['email'] = ['nullable', 'email:rfc', 'max:191'];
         }
 
-        $rules['ship_name']        = ['required', 'string', 'max:191'];
-        $rules['ship_phone']       = ['required', 'string', 'regex:/^(\+?880|0)1[3-9]\d{8}$/'];
-        $rules['ship_address']     = ['required', 'string'];
-        $rules['ship_city']        = ['required', 'string', 'max:100'];
-        $rules['ship_district']    = ['required', 'string', 'max:100'];
-        $rules['ship_zip']         = ['nullable', 'string', 'max:10'];
-        $rules['notes']            = ['nullable', 'string', 'max:1000'];
+        $rules['ship_name'] = ['required', 'string', 'max:191'];
+        $rules['ship_phone'] = ['required', 'string', 'regex:'.PhoneNumber::REGEX];
+        $rules['ship_address'] = ['required', 'string'];
+        $rules['ship_district'] = ['required', 'string', 'max:100'];
+        $rules['notes'] = ['nullable', 'string', 'max:1000'];
         $rules['shipping_rate_id'] = ['nullable', 'exists:shipping_rates,id'];
-        $rules['payment_method']   = ['required', 'in:cod,bkash,nagad,sslcommerz'];
-        $rules['sender_number']    = ['required_if:payment_method,bkash,nagad', 'excluded_if:payment_method,sslcommerz', 'nullable', 'string', 'max:20'];
-        $rules['transaction_id']   = ['required_if:payment_method,bkash,nagad', 'excluded_if:payment_method,sslcommerz', 'nullable', 'string', 'max:100'];
-        $rules['screenshot']       = ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'];
+        $rules['payment_method'] = ['required', 'in:cod,bkash,nagad,sslcommerz'];
+        $rules['sender_number'] = ['required_if:payment_method,bkash,nagad', 'excluded_if:payment_method,sslcommerz', 'nullable', 'string', 'max:20'];
+        $rules['transaction_id'] = ['required_if:payment_method,bkash,nagad', 'excluded_if:payment_method,sslcommerz', 'nullable', 'string', 'max:100'];
+        $rules['screenshot'] = ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'];
 
         $messages = [
             'ship_phone.regex' => __('front.phone_invalid'),
@@ -179,24 +196,38 @@ class CheckoutController extends Controller
 
         $request->validate($rules, $messages);
 
-        // Auto-register or login guest users before order placement
+        // Auto-register or sign in guest users before order placement — the phone
+        // number entered in the delivery address is the account identifier.
         if (! auth()->check()) {
-            $sessionId     = session()->getId();
-            $plainPassword = Str::random(12);
+            $sessionId = session()->getId();
+            $user = User::where('phone', $request->ship_phone)->first();
 
-            $user = User::firstOrCreate(
-                ['email' => $request->email],
-                [
-                    'name'     => $request->ship_name,
+            if (! $user) {
+                $plainPassword = Str::random(12);
+
+                $user = User::create([
+                    'name' => $request->ship_name,
+                    'phone' => $request->ship_phone,
+                    'email' => $this->claimableEmail($request->email),
                     'password' => Hash::make($plainPassword),
-                ]
-            );
+                ]);
 
-            // Send credentials only for brand-new accounts
-            if ($user->wasRecentlyCreated) {
-                try {
-                    Mail::to($user->email)->queue(new NewAccountCredentials($user, $plainPassword));
-                } catch (\Throwable) {}
+                // Credentials can only be delivered when an email was supplied.
+                // Without one, they are surfaced once on the confirmation screen.
+                if ($user->hasEmail()) {
+                    try {
+                        Mail::to($user->email)->queue(new NewAccountCredentials($user, $plainPassword));
+                    } catch (\Throwable) {
+                    }
+                } else {
+                    session([self::NEW_CREDENTIALS_KEY => [
+                        'phone' => $user->phone,
+                        'password' => $plainPassword,
+                    ]]);
+                }
+            } elseif (! $user->hasEmail() && $email = $this->claimableEmail($request->email)) {
+                // Existing phone-only account supplying an email for the first time.
+                $user->update(['email' => $email]);
             }
 
             auth()->login($user);
@@ -218,13 +249,13 @@ class CheckoutController extends Controller
         foreach ($cartItems as $item) {
             $stock = $item->variant ? $item->variant->stock : $item->product->stock;
             if ($item->quantity > $stock) {
-                return back()->with('checkout_error', __('front.insufficient_stock') . ': ' . ($item->product->getTranslation('en')?->name ?? $item->product->sku));
+                return back()->with('checkout_error', __('front.insufficient_stock').': '.($item->product->getTranslation('en')?->name ?? $item->product->sku));
             }
         }
 
         // Calculate totals
-        $subtotal       = $cartItems->sum('line_total');
-        $couponSession  = session('checkout.coupon');
+        $subtotal = $cartItems->sum('line_total');
+        $couponSession = session('checkout.coupon');
         $discountAmount = $couponSession ? (float) $couponSession['discount'] : 0;
 
         $shippingAmount = 0;
@@ -241,31 +272,29 @@ class CheckoutController extends Controller
 
             // 1. Create order
             $order = Order::create([
-                'order_number'    => Order::generateOrderNumber(),
-                'user_id'         => auth()->id(),
-                'coupon_id'       => $couponSession ? $couponSession['id'] : null,
-                'shipping_rate_id'=> $request->shipping_rate_id,
-                'subtotal'        => $subtotal,
+                'order_number' => Order::generateOrderNumber(),
+                'user_id' => auth()->id(),
+                'coupon_id' => $couponSession ? $couponSession['id'] : null,
+                'shipping_rate_id' => $request->shipping_rate_id,
+                'subtotal' => $subtotal,
                 'discount_amount' => $discountAmount,
                 'shipping_amount' => $shippingAmount,
-                'tax_amount'      => 0,
-                'total_amount'    => $total,
-                'status'          => Order::STATUS_PENDING,
-                'payment_status'  => Order::PAYMENT_UNPAID,
-                'payment_method'  => $request->payment_method,
-                'ship_name'       => $request->ship_name,
-                'ship_phone'      => $request->ship_phone,
-                'ship_address'    => $request->ship_address,
-                'ship_city'       => $request->ship_city,
-                'ship_district'   => $request->ship_district,
-                'ship_zip'        => $request->ship_zip,
-                'notes'           => $request->notes,
+                'tax_amount' => 0,
+                'total_amount' => $total,
+                'status' => Order::STATUS_PENDING,
+                'payment_status' => Order::PAYMENT_UNPAID,
+                'payment_method' => $request->payment_method,
+                'ship_name' => $request->ship_name,
+                'ship_phone' => $request->ship_phone,
+                'ship_address' => $request->ship_address,
+                'ship_district' => $request->ship_district,
+                'notes' => $request->notes,
             ]);
 
             // 2. Create order items + decrement stock
             foreach ($cartItems as $item) {
-                $unitPrice    = $item->variant ? $item->variant->effective_price : $item->product->current_price;
-                $productName  = $item->product->getTranslation('en')?->name ?? $item->product->sku;
+                $unitPrice = $item->variant ? $item->variant->effective_price : $item->product->current_price;
+                $productName = $item->product->getTranslation('en')?->name ?? $item->product->sku;
                 // Build variant label, substituting the size value with the custom measurement when applicable
                 $variantLabel = null;
                 if ($item->variant) {
@@ -274,21 +303,22 @@ class CheckoutController extends Controller
                             if ($item->custom_size && strtolower($opt->option_name) === 'size') {
                                 return "{$opt->option_name}: {$item->custom_size}";
                             }
+
                             return "{$opt->option_name}: {$opt->option_value}";
                         })
                         ->implode(' / ');
                 }
 
                 OrderItem::create([
-                    'order_id'      => $order->id,
-                    'product_id'    => $item->product_id,
-                    'variant_id'    => $item->variant_id,
-                    'product_name'  => $productName,
+                    'order_id' => $order->id,
+                    'product_id' => $item->product_id,
+                    'variant_id' => $item->variant_id,
+                    'product_name' => $productName,
                     'variant_label' => $variantLabel,
-                    'custom_size'   => $item->custom_size ?: null,
-                    'unit_price'    => $unitPrice,
-                    'quantity'      => $item->quantity,
-                    'subtotal'      => $unitPrice * $item->quantity,
+                    'custom_size' => $item->custom_size ?: null,
+                    'unit_price' => $unitPrice,
+                    'quantity' => $item->quantity,
+                    'subtotal' => $unitPrice * $item->quantity,
                 ]);
 
                 // Decrement stock
@@ -302,11 +332,11 @@ class CheckoutController extends Controller
             // 3. Coupon usage
             if ($couponSession) {
                 CouponUsage::create([
-                    'coupon_id'       => $couponSession['id'],
-                    'user_id'         => auth()->id(),
-                    'order_id'        => $order->id,
+                    'coupon_id' => $couponSession['id'],
+                    'user_id' => auth()->id(),
+                    'order_id' => $order->id,
                     'discount_amount' => $couponSession['discount'],
-                    'created_at'      => now(),
+                    'created_at' => now(),
                 ]);
                 Coupon::where('id', $couponSession['id'])->increment('used_count');
             }
@@ -315,10 +345,10 @@ class CheckoutController extends Controller
             if ($request->payment_method === 'cod') {
                 PaymentTransaction::create([
                     'order_id' => $order->id,
-                    'gateway'  => 'cod',
-                    'amount'   => $order->total_amount,
+                    'gateway' => 'cod',
+                    'amount' => $order->total_amount,
                     'currency' => 'BDT',
-                    'status'   => 'pending',
+                    'status' => 'pending',
                 ]);
             } elseif ($request->payment_method === 'sslcommerz') {
                 // PaymentTransaction created in PaymentController after gateway init succeeds
@@ -330,13 +360,13 @@ class CheckoutController extends Controller
                 }
 
                 ManualPayment::create([
-                    'order_id'        => $order->id,
-                    'method'          => $request->payment_method,
-                    'sender_number'   => $request->sender_number,
-                    'transaction_id'  => $request->transaction_id,
-                    'amount'          => $order->total_amount,
+                    'order_id' => $order->id,
+                    'method' => $request->payment_method,
+                    'sender_number' => $request->sender_number,
+                    'transaction_id' => $request->transaction_id,
+                    'amount' => $order->total_amount,
                     'screenshot_path' => $screenshotPath,
-                    'status'          => ManualPayment::STATUS_PENDING,
+                    'status' => ManualPayment::STATUS_PENDING,
                 ]);
 
                 // Update payment_status to pending_verification
@@ -345,9 +375,9 @@ class CheckoutController extends Controller
 
             // 5. Status history
             OrderStatusHistory::create([
-                'order_id'   => $order->id,
-                'status'     => Order::STATUS_PENDING,
-                'notes'      => 'Order placed by customer.',
+                'order_id' => $order->id,
+                'status' => Order::STATUS_PENDING,
+                'notes' => 'Order placed by customer.',
                 'changed_by' => auth()->id(),
                 'created_at' => now(),
             ]);
@@ -364,18 +394,38 @@ class CheckoutController extends Controller
         // SSLCommerz: redirect to payment gateway (email sent after successful payment)
         if ($request->payment_method === 'sslcommerz') {
             session(['sslcommerz_order_id' => $order->id]);
+
             return redirect()->route('payment.initiate');
         }
 
-        // Queue order confirmation email (non-fatal if queue is unavailable)
-        try {
-            $order->load(['items', 'user']);
-            Mail::to($order->user->email)->queue(new OrderConfirmation($order));
-        } catch (\Throwable) {
-            // Non-fatal – order is placed even if email dispatch fails
+        // Queue the order confirmation email only when we have an address to send it to
+        // (non-fatal if the queue is unavailable)
+        $order->load(['items', 'user']);
+
+        if ($order->user?->hasEmail()) {
+            try {
+                Mail::to($order->user->email)->queue(new OrderConfirmation($order));
+            } catch (\Throwable) {
+                // Non-fatal – order is placed even if email dispatch fails
+            }
         }
 
         return redirect()->route('checkout.confirmation', $order)->with('order_placed', true);
+    }
+
+    /**
+     * Return the supplied email only when no other account already owns it, so
+     * guest checkout can never collide with the users.email unique index.
+     */
+    private function claimableEmail(?string $email): ?string
+    {
+        $email = $email ? strtolower(trim($email)) : null;
+
+        if (! $email || User::where('email', $email)->exists()) {
+            return null;
+        }
+
+        return $email;
     }
 
     private function cartItems()
@@ -394,6 +444,9 @@ class CheckoutController extends Controller
 
         $order->load(['items.product', 'items.variant', 'manualPayment']);
 
-        return view('checkout.confirmation', compact('order'));
+        // Shown once, then gone — the customer has no email to fall back on.
+        $newCredentials = session()->pull(self::NEW_CREDENTIALS_KEY);
+
+        return view('checkout.confirmation', compact('order', 'newCredentials'));
     }
 }

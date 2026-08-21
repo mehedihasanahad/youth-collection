@@ -1,14 +1,22 @@
 <?php
 
-namespace App\Http\Requests;
+declare(strict_types=1);
+
+namespace App\Http\Requests\Auth;
 
 use App\Models\User;
 use App\Support\PhoneNumber;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules;
 
-class ProfileUpdateRequest extends FormRequest
+final class RegisterRequest extends FormRequest
 {
+    public function authorize(): bool
+    {
+        return true;
+    }
+
     protected function prepareForValidation(): void
     {
         $email = trim((string) $this->input('email', ''));
@@ -19,28 +27,13 @@ class ProfileUpdateRequest extends FormRequest
         ]);
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'phone' => [
-                'required',
-                'string',
-                'regex:'.PhoneNumber::REGEX,
-                Rule::unique(User::class, 'phone')->ignore($this->user()->id),
-            ],
-            'email' => [
-                'nullable',
-                'string',
-                'email',
-                'max:255',
-                Rule::unique(User::class, 'email')->ignore($this->user()->id),
-            ],
+            'phone' => ['required', 'string', 'regex:'.PhoneNumber::REGEX, Rule::unique(User::class, 'phone')],
+            'email' => ['nullable', 'string', 'email', 'max:255', Rule::unique(User::class, 'email')],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ];
     }
 

@@ -25,6 +25,8 @@ class UserFactory extends Factory
     {
         return [
             'name' => fake()->name(),
+            // Phone is the login identifier and must be unique.
+            'phone' => '01'.fake()->numberBetween(3, 9).fake()->unique()->numerify('########'),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
