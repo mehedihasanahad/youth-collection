@@ -68,17 +68,44 @@ final class ProductChatService
             return null;
         }
 
-        $page = trim((string) Setting::get('chat_messenger_id', ''));
+        $page = $this->messengerPageHandle((string) Setting::get('chat_messenger_id', ''));
 
-        if ($page === '') {
+        return $page === null ? null : 'https://m.me/'.rawurlencode($page);
+    }
+
+    /**
+     * Reduce whatever the admin pasted to the handle m.me expects. Accepts a bare
+     * username, a numeric page id, or a full m.me / messenger.com / facebook.com
+     * URL, with or without a scheme.
+     */
+    private function messengerPageHandle(string $value): ?string
+    {
+        $value = trim($value);
+
+        if ($value === '') {
             return null;
         }
 
-        // Accept a full facebook.com/<page> URL as well as a bare username or page id.
-        $page = ltrim((string) preg_replace('#^https?://(www\.|m\.)?(facebook|messenger)\.com/#i', '', $page), '/');
-        $page = strtok($page, '?/') ?: $page;
+        // facebook.com/profile.php?id=... keeps the page id in the query string.
+        if (str_contains($value, '?')) {
+            parse_str((string) parse_url($value, PHP_URL_QUERY), $query);
 
-        return 'https://m.me/'.rawurlencode($page);
+            if (! empty($query['id'])) {
+                return trim((string) $query['id']) ?: null;
+            }
+        }
+
+        $value = (string) preg_replace('#^https?://#i', '', $value);
+        // messenger.com addresses the thread as /t/<page>.
+        $value = (string) preg_replace('#^(?:www\.|web\.|m\.)?messenger\.com/(?:t/)?#i', '', $value);
+        $value = (string) preg_replace('#^(?:www\.|web\.|m\.)?facebook\.com/(?:messages/t/)?#i', '', $value);
+        $value = (string) preg_replace('#^(?:m\.me|fb\.me|fb\.com)/#i', '', $value);
+        $value = explode('?', $value)[0];
+
+        // Keep only the first path segment.
+        $segment = explode('/', trim($value, '/'))[0];
+
+        return $segment === '' ? null : $segment;
     }
 
     private function message(Product $product, string $locale): string

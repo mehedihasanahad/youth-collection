@@ -470,7 +470,7 @@ class SettingsPage extends Page
                     ->placeholder('youthcollection')
                     ->nullable()
                     ->visible(fn ($get) => $get('chat_messenger_enabled'))
-                    ->helperText('The name after facebook.com/ — a full page URL also works. Messenger does not support pre-filled messages, so the product details are copied to the customer\'s clipboard to paste into the chat.'),
+                    ->helperText('Paste your page link (https://m.me/yourpage or https://facebook.com/yourpage) or just the username. Messenger does not support pre-filled messages, so the product details are copied to the customer\'s clipboard to paste into the chat.'),
             ])->columns(2),
 
             Forms\Components\Section::make('Message')->schema([

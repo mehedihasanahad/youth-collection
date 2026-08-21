@@ -10,6 +10,7 @@ use App\Models\Setting;
 use App\Services\ProductChatService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class ProductChatLinksTest extends TestCase
@@ -55,14 +56,42 @@ class ProductChatLinksTest extends TestCase
         $this->assertStringContainsString('YC-001', $message);
     }
 
-    public function test_messenger_link_accepts_a_full_page_url(): void
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function pageIdentifiers(): array
+    {
+        return [
+            'bare username' => ['youthcollections18'],
+            'm.me url' => ['https://m.me/youthcollections18'],
+            'm.me url without scheme' => ['m.me/youthcollections18'],
+            'facebook url' => ['https://www.facebook.com/youthcollections18'],
+            'facebook url with trailing slash' => ['https://www.facebook.com/youthcollections18/'],
+            'facebook url without scheme' => ['facebook.com/youthcollections18'],
+            'messenger url' => ['https://messenger.com/t/youthcollections18'],
+            'padded whitespace' => ['  https://m.me/youthcollections18  '],
+        ];
+    }
+
+    #[DataProvider('pageIdentifiers')]
+    public function test_messenger_link_resolves_every_accepted_page_format(string $configured): void
     {
         Setting::set('chat_messenger_enabled', '1', 'chat');
-        Setting::set('chat_messenger_id', 'https://www.facebook.com/youthcollection/', 'chat');
+        Setting::set('chat_messenger_id', $configured, 'chat');
 
         $links = app(ProductChatService::class)->linksFor($this->product());
 
-        $this->assertSame('https://m.me/youthcollection', $links['messenger']);
+        $this->assertSame('https://m.me/youthcollections18', $links['messenger']);
+    }
+
+    public function test_messenger_link_reads_the_page_id_out_of_a_profile_url(): void
+    {
+        Setting::set('chat_messenger_enabled', '1', 'chat');
+        Setting::set('chat_messenger_id', 'https://www.facebook.com/profile.php?id=61550000000000', 'chat');
+
+        $links = app(ProductChatService::class)->linksFor($this->product());
+
+        $this->assertSame('https://m.me/61550000000000', $links['messenger']);
     }
 
     public function test_messenger_link_carries_no_prefill_parameter(): void
