@@ -16,6 +16,8 @@ use App\Models\Setting;
 use App\Models\ShippingZoneDistrict;
 use App\Models\User;
 use App\Support\PhoneNumber;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -79,10 +81,23 @@ class CheckoutController extends Controller
 
         $locale = app()->getLocale();
 
+        // Identifies this checkout attempt for the pixel: stable across page
+        // reloads (coupon apply, shipping change) but new when the cart changes,
+        // so InitiateCheckout is reported once per real checkout intent.
+        $checkoutEventId = 'ic_'.md5(
+            (auth()->id() ?? session()->getId()).'|'.$cartItems
+                ->map(fn ($item) => $item->product_id.':'.$item->variant_id.':'.$item->quantity)
+                ->implode(',')
+        );
+
+        // One-shot token: a resubmitted checkout form (double click, browser
+        // resend) reuses it and is matched to the order it already created.
+        $idempotencyKey = (string) Str::uuid();
+
         return view('checkout.index', compact(
             'cartItems', 'subtotal', 'addresses', 'districts',
             'paymentMethods', 'bkashNumber', 'bkashName', 'nagadNumber', 'nagadName',
-            'couponSession', 'locale'
+            'couponSession', 'locale', 'checkoutEventId', 'idempotencyKey'
         ));
     }
 
@@ -189,12 +204,22 @@ class CheckoutController extends Controller
         $rules['sender_number'] = ['required_if:payment_method,bkash,nagad', 'excluded_if:payment_method,sslcommerz', 'nullable', 'string', 'max:20'];
         $rules['transaction_id'] = ['required_if:payment_method,bkash,nagad', 'excluded_if:payment_method,sslcommerz', 'nullable', 'string', 'max:100'];
         $rules['screenshot'] = ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'];
+        $rules['idempotency_key'] = ['nullable', 'string', 'max:64'];
 
         $messages = [
             'ship_phone.regex' => __('front.phone_invalid'),
         ];
 
         $request->validate($rules, $messages);
+
+        // A resubmitted form (double click, browser resend, back-then-submit)
+        // carries the token of the order it already created — send the customer
+        // to that order instead of placing a second one.
+        $idempotencyKey = $request->input('idempotency_key') ?: null;
+
+        if ($idempotencyKey && $placed = Order::where('idempotency_key', $idempotencyKey)->first()) {
+            return $this->redirectToPlacedOrder($placed);
+        }
 
         // Auto-register or sign in guest users before order placement — the phone
         // number entered in the delivery address is the account identifier.
@@ -268,128 +293,143 @@ class CheckoutController extends Controller
 
         $total = max(0, $subtotal - $discountAmount + $shippingAmount);
 
-        $order = DB::transaction(function () use ($request, $cartItems, $subtotal, $discountAmount, $shippingAmount, $total, $couponSession) {
+        try {
+            $order = DB::transaction(function () use ($request, $cartItems, $subtotal, $discountAmount, $shippingAmount, $total, $couponSession, $idempotencyKey) {
 
-            // 1. Create order
-            $order = Order::create([
-                'order_number' => Order::generateOrderNumber(),
-                'user_id' => auth()->id(),
-                'coupon_id' => $couponSession ? $couponSession['id'] : null,
-                'shipping_rate_id' => $request->shipping_rate_id,
-                'subtotal' => $subtotal,
-                'discount_amount' => $discountAmount,
-                'shipping_amount' => $shippingAmount,
-                'tax_amount' => 0,
-                'total_amount' => $total,
-                'status' => Order::STATUS_PENDING,
-                'payment_status' => Order::PAYMENT_UNPAID,
-                'payment_method' => $request->payment_method,
-                'ship_name' => $request->ship_name,
-                'ship_phone' => $request->ship_phone,
-                'ship_address' => $request->ship_address,
-                'ship_district' => $request->ship_district,
-                'notes' => $request->notes,
-            ]);
-
-            // 2. Create order items + decrement stock
-            foreach ($cartItems as $item) {
-                $unitPrice = $item->variant ? $item->variant->effective_price : $item->product->current_price;
-                $productName = $item->product->getTranslation('en')?->name ?? $item->product->sku;
-                // Build variant label, substituting the size value with the custom measurement when applicable
-                $variantLabel = null;
-                if ($item->variant) {
-                    $variantLabel = $item->variant->options
-                        ->map(function ($opt) use ($item) {
-                            if ($item->custom_size && strtolower($opt->option_name) === 'size') {
-                                return "{$opt->option_name}: {$item->custom_size}";
-                            }
-
-                            return "{$opt->option_name}: {$opt->option_value}";
-                        })
-                        ->implode(' / ');
-                }
-
-                OrderItem::create([
-                    'order_id' => $order->id,
-                    'product_id' => $item->product_id,
-                    'variant_id' => $item->variant_id,
-                    'product_name' => $productName,
-                    'variant_label' => $variantLabel,
-                    'custom_size' => $item->custom_size ?: null,
-                    'unit_price' => $unitPrice,
-                    'quantity' => $item->quantity,
-                    'subtotal' => $unitPrice * $item->quantity,
+                // 1. Create order
+                $order = Order::create([
+                    'order_number' => Order::generateOrderNumber(),
+                    'idempotency_key' => $idempotencyKey,
+                    'user_id' => auth()->id(),
+                    'coupon_id' => $couponSession ? $couponSession['id'] : null,
+                    'shipping_rate_id' => $request->shipping_rate_id,
+                    'subtotal' => $subtotal,
+                    'discount_amount' => $discountAmount,
+                    'shipping_amount' => $shippingAmount,
+                    'tax_amount' => 0,
+                    'total_amount' => $total,
+                    'status' => Order::STATUS_PENDING,
+                    'payment_status' => Order::PAYMENT_UNPAID,
+                    'payment_method' => $request->payment_method,
+                    'ship_name' => $request->ship_name,
+                    'ship_phone' => $request->ship_phone,
+                    'ship_address' => $request->ship_address,
+                    'ship_district' => $request->ship_district,
+                    'notes' => $request->notes,
                 ]);
 
-                // Decrement stock
-                if ($item->variant) {
-                    $item->variant->decrement('stock', $item->quantity);
-                } else {
-                    $item->product->decrement('stock', $item->quantity);
-                }
-            }
+                // 2. Create order items + decrement stock
+                foreach ($cartItems as $item) {
+                    $unitPrice = $item->variant ? $item->variant->effective_price : $item->product->current_price;
+                    $productName = $item->product->getTranslation('en')?->name ?? $item->product->sku;
+                    // Build variant label, substituting the size value with the custom measurement when applicable
+                    $variantLabel = null;
+                    if ($item->variant) {
+                        $variantLabel = $item->variant->options
+                            ->map(function ($opt) use ($item) {
+                                if ($item->custom_size && strtolower($opt->option_name) === 'size') {
+                                    return "{$opt->option_name}: {$item->custom_size}";
+                                }
 
-            // 3. Coupon usage
-            if ($couponSession) {
-                CouponUsage::create([
-                    'coupon_id' => $couponSession['id'],
-                    'user_id' => auth()->id(),
+                                return "{$opt->option_name}: {$opt->option_value}";
+                            })
+                            ->implode(' / ');
+                    }
+
+                    OrderItem::create([
+                        'order_id' => $order->id,
+                        'product_id' => $item->product_id,
+                        'variant_id' => $item->variant_id,
+                        'product_name' => $productName,
+                        'variant_label' => $variantLabel,
+                        'custom_size' => $item->custom_size ?: null,
+                        'unit_price' => $unitPrice,
+                        'quantity' => $item->quantity,
+                        'subtotal' => $unitPrice * $item->quantity,
+                    ]);
+
+                    // Decrement stock
+                    if ($item->variant) {
+                        $item->variant->decrement('stock', $item->quantity);
+                    } else {
+                        $item->product->decrement('stock', $item->quantity);
+                    }
+                }
+
+                // 3. Coupon usage
+                if ($couponSession) {
+                    CouponUsage::create([
+                        'coupon_id' => $couponSession['id'],
+                        'user_id' => auth()->id(),
+                        'order_id' => $order->id,
+                        'discount_amount' => $couponSession['discount'],
+                        'created_at' => now(),
+                    ]);
+                    Coupon::where('id', $couponSession['id'])->increment('used_count');
+                }
+
+                // 4. Payment record
+                if ($request->payment_method === 'cod') {
+                    PaymentTransaction::create([
+                        'order_id' => $order->id,
+                        'gateway' => 'cod',
+                        'amount' => $order->total_amount,
+                        'currency' => 'BDT',
+                        'status' => 'pending',
+                    ]);
+                } elseif ($request->payment_method === 'sslcommerz') {
+                    // PaymentTransaction created in PaymentController after gateway init succeeds
+                } else {
+                    // bkash or nagad manual payment
+                    $screenshotPath = null;
+                    if ($request->hasFile('screenshot')) {
+                        $screenshotPath = $request->file('screenshot')->store('payments', 'public');
+                    }
+
+                    ManualPayment::create([
+                        'order_id' => $order->id,
+                        'method' => $request->payment_method,
+                        'sender_number' => $request->sender_number,
+                        'transaction_id' => $request->transaction_id,
+                        'amount' => $order->total_amount,
+                        'screenshot_path' => $screenshotPath,
+                        'status' => ManualPayment::STATUS_PENDING,
+                    ]);
+
+                    // Update payment_status to pending_verification
+                    $order->update(['payment_status' => Order::PAYMENT_PENDING_VERIFICATION]);
+                }
+
+                // 5. Status history
+                OrderStatusHistory::create([
                     'order_id' => $order->id,
-                    'discount_amount' => $couponSession['discount'],
+                    'status' => Order::STATUS_PENDING,
+                    'notes' => 'Order placed by customer.',
+                    'changed_by' => auth()->id(),
                     'created_at' => now(),
                 ]);
-                Coupon::where('id', $couponSession['id'])->increment('used_count');
+
+                // 6. Clear cart
+                auth()->user()->cartItems()->delete();
+
+                // 7. Clear coupon session
+                session()->forget('checkout.coupon');
+
+                return $order;
+            });
+        } catch (UniqueConstraintViolationException $e) {
+            // Two identical submissions raced each other; the unique index
+            // rejected this one, so hand the customer the order that won.
+            $winner = $idempotencyKey
+                ? Order::where('idempotency_key', $idempotencyKey)->first()
+                : null;
+
+            if (! $winner) {
+                throw $e;
             }
 
-            // 4. Payment record
-            if ($request->payment_method === 'cod') {
-                PaymentTransaction::create([
-                    'order_id' => $order->id,
-                    'gateway' => 'cod',
-                    'amount' => $order->total_amount,
-                    'currency' => 'BDT',
-                    'status' => 'pending',
-                ]);
-            } elseif ($request->payment_method === 'sslcommerz') {
-                // PaymentTransaction created in PaymentController after gateway init succeeds
-            } else {
-                // bkash or nagad manual payment
-                $screenshotPath = null;
-                if ($request->hasFile('screenshot')) {
-                    $screenshotPath = $request->file('screenshot')->store('payments', 'public');
-                }
-
-                ManualPayment::create([
-                    'order_id' => $order->id,
-                    'method' => $request->payment_method,
-                    'sender_number' => $request->sender_number,
-                    'transaction_id' => $request->transaction_id,
-                    'amount' => $order->total_amount,
-                    'screenshot_path' => $screenshotPath,
-                    'status' => ManualPayment::STATUS_PENDING,
-                ]);
-
-                // Update payment_status to pending_verification
-                $order->update(['payment_status' => Order::PAYMENT_PENDING_VERIFICATION]);
-            }
-
-            // 5. Status history
-            OrderStatusHistory::create([
-                'order_id' => $order->id,
-                'status' => Order::STATUS_PENDING,
-                'notes' => 'Order placed by customer.',
-                'changed_by' => auth()->id(),
-                'created_at' => now(),
-            ]);
-
-            // 6. Clear cart
-            auth()->user()->cartItems()->delete();
-
-            // 7. Clear coupon session
-            session()->forget('checkout.coupon');
-
-            return $order;
-        });
+            return $this->redirectToPlacedOrder($winner);
+        }
 
         // SSLCommerz: redirect to payment gateway (email sent after successful payment)
         if ($request->payment_method === 'sslcommerz') {
@@ -411,6 +451,22 @@ class CheckoutController extends Controller
         }
 
         return redirect()->route('checkout.confirmation', $order)->with('order_placed', true);
+    }
+
+    /**
+     * Destination for an order that has already been created — used when a
+     * duplicate submission is detected. Deliberately omits the `order_placed`
+     * flag so the confirmation screen does not report a second Purchase.
+     */
+    private function redirectToPlacedOrder(Order $order): RedirectResponse
+    {
+        if ($order->payment_method === 'sslcommerz' && $order->payment_status === Order::PAYMENT_UNPAID) {
+            session(['sslcommerz_order_id' => $order->id]);
+
+            return redirect()->route('payment.initiate');
+        }
+
+        return redirect()->route('checkout.confirmation', $order);
     }
 
     /**
@@ -447,6 +503,10 @@ class CheckoutController extends Controller
         // Shown once, then gone — the customer has no email to fall back on.
         $newCredentials = session()->pull(self::NEW_CREDENTIALS_KEY);
 
-        return view('checkout.confirmation', compact('order', 'newCredentials'));
+        // Purchase is reported only on the redirect that immediately follows
+        // order placement — never on a refresh, bookmark or back navigation.
+        $firePurchase = (bool) session()->pull('order_placed', false);
+
+        return view('checkout.confirmation', compact('order', 'newCredentials', 'firePurchase'));
     }
 }

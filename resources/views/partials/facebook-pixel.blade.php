@@ -31,20 +31,65 @@ t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
 document,'script','https://connect.facebook.net/en_US/fbevents.js');
 fbq('init', '{{ $pixelId }}'@if(!empty($pixelAdvanced)), {!! json_encode($pixelAdvanced) !!}@endif);
 fbq('track', 'PageView');
+
+/**
+ * Deduplicated pixel tracking.
+ *
+ * fbTrack(name, params, { eventId, once })
+ *   eventId  — stable id for this logical event; sent as eventID so Meta can
+ *              collapse repeats, and used as the local guard key.
+ *   once     — true      : never fire again on this browser (localStorage)
+ *              'session' : never fire again in this tab session (sessionStorage)
+ *              omitted   : guard only within the current page load
+ */
+window.fbTrack = function (name, params, options) {
+    if (typeof fbq === 'undefined') { return; }
+
+    options = options || {};
+    var eventId = options.eventId || null;
+
+    if (!eventId) {
+        fbq('track', name, params || {});
+        return;
+    }
+
+    var key = 'fbq:' + name + ':' + eventId;
+
+    // Same page load — covers double-clicks and repeated handler invocations.
+    window.__fbFired = window.__fbFired || {};
+    if (window.__fbFired[key]) { return; }
+
+    // Across reloads / history navigation / new tabs.
+    if (options.once) {
+        var store = options.once === 'session' ? window.sessionStorage : window.localStorage;
+        try {
+            if (store.getItem(key)) { return; }
+            store.setItem(key, '1');
+        } catch (e) {
+            // Storage blocked (private mode, quota) — the in-page guard and the
+            // eventID sent to Meta still protect against duplicates.
+        }
+    }
+
+    window.__fbFired[key] = true;
+    fbq('track', name, params || {}, { eventID: eventId });
+};
 </script>
 <noscript><img height="1" width="1" style="display:none"
     src="https://www.facebook.com/tr?id={{ $pixelId }}&ev=PageView&noscript=1"/></noscript>
 @php $atcEvent = session('_pixel_atc'); @endphp
 @if($atcEvent)
+{{-- Fired server-side only after the item actually entered the cart, so a
+     rejected add (out of stock, variant missing) never reports AddToCart. --}}
 <script>
-fbq('track', 'AddToCart', {!! json_encode([
+fbTrack('AddToCart', {!! json_encode([
     'content_ids'  => [$atcEvent['content_id']],
     'content_name' => $atcEvent['content_name'],
     'content_type' => 'product',
     'value'        => $atcEvent['value'],
     'currency'     => 'BDT',
     'num_items'    => $atcEvent['quantity'],
-]) !!});
+]) !!}, { eventId: '{{ $atcEvent['event_id'] }}' });
 </script>
 @endif
 @stack('pixel-events')

@@ -702,6 +702,8 @@ function toggleWishlist(btn, productId) {
     </div>
 </nav>
 
+@include('partials.single-submit-guard')
+
 @stack('scripts')
 
 @if($whatsappNumber)

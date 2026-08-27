@@ -32,6 +32,8 @@
     <div class="lg:grid lg:grid-cols-3 lg:gap-10">
 
     <form method="POST" action="{{ route('checkout.place-order') }}" enctype="multipart/form-data" id="checkout-form" class="lg:col-span-2">
+        {{-- Ties every resubmission of this form to the one order it creates. --}}
+        <input type="hidden" name="idempotency_key" value="{{ $idempotencyKey }}">
         @csrf
             {{-- ── LEFT: Checkout Steps ────────────────────────────────────── --}}
             <div class="space-y-8 mb-10 lg:mb-0">
@@ -449,24 +451,24 @@
 
 @push('pixel-events')
 <script>
-if (typeof fbq !== 'undefined') {
-    fbq('track', 'InitiateCheckout', {
-        value:        {{ (float) ($subtotal - ($couponSession['discount'] ?? 0)) }},
-        currency:     'BDT',
-        num_items:    {{ $cartItems->sum('quantity') }},
-        content_ids:  [{{ $cartItems->pluck('product_id')->filter()->implode(',') }}],
-        content_type: 'product',
-        @auth
-        @if(auth()->user()->email)
-        em:           '{{ hash("sha256", strtolower(trim(auth()->user()->email))) }}',
-        @endif
-        @if(auth()->user()->phone)
-        ph:           '{{ hash("sha256", preg_replace("/\D/", "", auth()->user()->phone)) }}',
-        @endif
-        external_id:  '{{ hash("sha256", (string) auth()->id()) }}',
-        @endauth
-    });
-}
+{{-- Keyed to the cart contents: a reload after applying a coupon or picking a
+     shipping method must not report a second InitiateCheckout. --}}
+fbTrack('InitiateCheckout', {
+    value:        {{ (float) ($subtotal - ($couponSession['discount'] ?? 0)) }},
+    currency:     'BDT',
+    num_items:    {{ $cartItems->sum('quantity') }},
+    content_ids:  [{{ $cartItems->pluck('product_id')->filter()->implode(',') }}],
+    content_type: 'product',
+    @auth
+    @if(auth()->user()->email)
+    em:           '{{ hash("sha256", strtolower(trim(auth()->user()->email))) }}',
+    @endif
+    @if(auth()->user()->phone)
+    ph:           '{{ hash("sha256", preg_replace("/\D/", "", auth()->user()->phone)) }}',
+    @endif
+    external_id:  '{{ hash("sha256", (string) auth()->id()) }}',
+    @endauth
+}, { eventId: '{{ $checkoutEventId }}', once: 'session' });
 </script>
 @endpush
 
@@ -603,8 +605,15 @@ function togglePaymentFields(method) {
     });
 }
 
-// Disable button on submit to prevent double-clicks
-document.getElementById('checkout-form').addEventListener('submit', function () {
+// Allow exactly one submission — covers double-clicks and Enter-key resubmits.
+let checkoutSubmitted = false;
+document.getElementById('checkout-form').addEventListener('submit', function (e) {
+    if (checkoutSubmitted) {
+        e.preventDefault();
+        return;
+    }
+    checkoutSubmitted = true;
+
     const btn = document.getElementById('place-order-btn');
     btn.disabled = true;
     btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Processing...';

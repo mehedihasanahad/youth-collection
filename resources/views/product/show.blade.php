@@ -827,27 +827,15 @@
 
 @push('pixel-events')
 <script>
-if (typeof fbq !== 'undefined') {
-    fbq('track', 'ViewContent', {
-        content_name:  '{{ addslashes($productName) }}',
-        content_ids:   ['{{ $product->id }}'],
-        content_type:  'product',
-        value:         {{ (float) $product->current_price }},
-        currency:      'BDT'
-    });
-
-    document.querySelectorAll('form[action="{{ route('cart.store') }}"]').forEach(function (form) {
-        form.addEventListener('submit', function () {
-            fbq('track', 'AddToCart', {
-                content_name: '{{ addslashes($productName) }}',
-                content_ids:  ['{{ $product->id }}'],
-                content_type: 'product',
-                value:        {{ (float) $product->current_price }},
-                currency:     'BDT'
-            });
-        });
-    });
-}
+{{-- AddToCart is fired server-side from partials.facebook-pixel after the item
+     is actually persisted — do not track it here as well. --}}
+fbTrack('ViewContent', {
+    content_name:  @json($productName),
+    content_ids:   ['{{ $product->id }}'],
+    content_type:  'product',
+    value:         {{ (float) $product->current_price }},
+    currency:      'BDT'
+});
 </script>
 @endpush
 

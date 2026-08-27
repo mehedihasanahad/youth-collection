@@ -6,6 +6,7 @@ use App\Models\CartItem;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class CartController extends Controller
 {
@@ -98,6 +99,8 @@ class CartController extends Controller
                 'content_name' => $pixelProduct->name,
                 'value'        => (float) $pixelPrice,
                 'quantity'     => $qty,
+                // Deduplication id — the same add can never be reported twice.
+                'event_id'     => 'atc_'.Str::uuid()->toString(),
             ]);
         }
 

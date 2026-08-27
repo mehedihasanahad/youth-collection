@@ -28,7 +28,7 @@ class Order extends Model
     const METHOD_SSLCOMMERZ = 'sslcommerz';
 
     protected $fillable = [
-        'order_number', 'user_id', 'coupon_id', 'shipping_rate_id',
+        'order_number', 'idempotency_key', 'user_id', 'coupon_id', 'shipping_rate_id',
         'subtotal', 'discount_amount', 'shipping_amount', 'tax_amount', 'total_amount',
         'status', 'payment_status', 'payment_method',
         'ship_name', 'ship_phone', 'ship_address', 'ship_city', 'ship_district', 'ship_zip',

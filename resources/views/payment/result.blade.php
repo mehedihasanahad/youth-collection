@@ -90,3 +90,31 @@
 
 @include('partials.new-account-credentials-modal')
 @endsection
+
+@push('pixel-events')
+@if($paid)
+{{-- SSLCommerz orders never reach the confirmation screen, so Purchase is
+     reported here. Keyed on the order number and stored once per browser, so
+     reloading this page or returning to it cannot report a second Purchase. --}}
+<script>
+fbTrack('Purchase', {
+    value:        {{ (float) $order->total_amount }},
+    currency:     'BDT',
+    content_ids:  [{{ $order->items->pluck('product_id')->filter()->implode(',') }}],
+    content_type: 'product',
+    num_items:    {{ $order->items->sum('quantity') }},
+    order_id:     '{{ $order->order_number }}',
+    @if($order->ship_name)
+    fn:           '{{ hash("sha256", strtolower(explode(" ", trim($order->ship_name), 2)[0])) }}',
+    ln:           '{{ hash("sha256", strtolower(explode(" ", trim($order->ship_name), 2)[1] ?? "")) }}',
+    @endif
+    @if($order->ship_phone)
+    ph:           '{{ hash("sha256", preg_replace("/\D/", "", $order->ship_phone)) }}',
+    @endif
+    @if($order->ship_district)
+    st:           '{{ hash("sha256", strtolower(trim($order->ship_district))) }}',
+    @endif
+}, { eventId: 'order_{{ $order->order_number }}', once: true });
+</script>
+@endif
+@endpush
